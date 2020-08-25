@@ -30,17 +30,15 @@ public class HostnameUtil {
     }
 
     public static Set<String> getHostnames(String address, boolean includeLoopback) {
-        HashSet hostnames = Sets.newHashSet();
+        HashSet<String> hostnames = Sets.newHashSet();
 
         try {
             InetAddress inetAddress = InetAddress.getByName(address);
             if (inetAddress.isAnyLocalAddress()) {
                 try {
                     Enumeration<NetworkInterface> nis = NetworkInterface.getNetworkInterfaces();
-                    Iterator var5 = Collections.list(nis).iterator();
 
-                    while(var5.hasNext()) {
-                        NetworkInterface ni = (NetworkInterface)var5.next();
+                    for (NetworkInterface ni : Collections.list(nis)) {
                         Collections.list(ni.getInetAddresses()).forEach((ia) -> {
                             if (ia instanceof Inet4Address) {
                                 boolean loopback = ia.isLoopbackAddress();
