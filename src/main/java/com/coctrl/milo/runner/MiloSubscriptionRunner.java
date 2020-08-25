@@ -1,6 +1,5 @@
 package com.coctrl.milo.runner;
 
-import com.coctrl.milo.configuration.MiloProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.sdk.client.api.subscriptions.UaMonitoredItem;
@@ -29,21 +28,19 @@ import static org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned.
  * @since 2020/4/14
  */
 @Slf4j
-public class MiloSubscriptionRunner extends MiloRunner {
+public class MiloSubscriptionRunner implements Runner {
     /**
      * 点位list
      */
     private final List<String> identifiers;
 
-    public MiloSubscriptionRunner(List<String> identifiers, MiloProperties properties) {
-        super(properties);
+    public MiloSubscriptionRunner(List<String> identifiers) {
         this.identifiers = identifiers;
     }
 
     @Override
     public Object run(OpcUaClient opcUaClient) {
         try {
-            opcUaClient.connect().get();
             // create a subscription @ 1000ms
             UaSubscription subscription = opcUaClient.getSubscriptionManager().createSubscription(1000.0).get();
             for (String identifier : identifiers) {

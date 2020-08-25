@@ -1,6 +1,5 @@
 package com.coctrl.milo.runner;
 
-import com.coctrl.milo.configuration.MiloProperties;
 import com.coctrl.milo.model.ReadOrWrite;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
@@ -19,14 +18,13 @@ import java.util.List;
  * @since 2020/4/14
  */
 @Slf4j
-public class MiloReadRunner extends MiloRunner {
+public class MiloReadRunner implements Runner {
     /**
      * 点位list
      */
     private final List<String> identifiers;
 
-    public MiloReadRunner(List<String> identifiers, MiloProperties properties) {
-        super(properties);
+    public MiloReadRunner(List<String> identifiers) {
         this.identifiers = identifiers;
     }
 

@@ -1,6 +1,5 @@
 package com.coctrl.milo.runner;
 
-import com.coctrl.milo.configuration.MiloProperties;
 import com.coctrl.milo.model.ReadOrWrite;
 import com.google.common.collect.ImmutableList;
 import lombok.extern.slf4j.Slf4j;
@@ -20,11 +19,10 @@ import java.util.concurrent.CompletableFuture;
  * @since 2020/4/14
  */
 @Slf4j
-public class MiloWriteRunner extends MiloRunner {
+public class MiloWriteRunner implements Runner {
     private final ReadOrWrite entity;
 
-    public MiloWriteRunner(ReadOrWrite entity, MiloProperties properties) {
-        super(properties);
+    public MiloWriteRunner(ReadOrWrite entity) {
         this.entity = entity;
     }
 
