@@ -1,11 +1,9 @@
 package com.coctrl.milo.service;
 
 import com.coctrl.milo.configuration.MiloProperties;
+import com.coctrl.milo.model.HistoryRead;
 import com.coctrl.milo.model.ReadOrWrite;
-import com.coctrl.milo.runner.MiloClient;
-import com.coctrl.milo.runner.MiloReadRunner;
-import com.coctrl.milo.runner.MiloSubscriptionRunner;
-import com.coctrl.milo.runner.MiloWriteRunner;
+import com.coctrl.milo.runner.*;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -38,5 +36,9 @@ public class MiloService {
 
     public Object subscriptionFromOpcUa(List<String> ids) {
         return new MiloClient(new MiloSubscriptionRunner(ids, properties)).run();
+    }
+
+    public HistoryRead historyReadFromOpcUa(String id) {
+        return (HistoryRead) new MiloClient(new MiloHistoryReadRunner(id, properties)).run();
     }
 }

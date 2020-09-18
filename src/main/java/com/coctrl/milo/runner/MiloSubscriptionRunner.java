@@ -60,10 +60,14 @@ public class MiloSubscriptionRunner extends MiloRunner {
 
                 MonitoringParameters parameters = new MonitoringParameters(
                         clientHandle,
-                        1000.0,     // sampling interval
-                        null,       // filter, null means use default
-                        uint(10),   // queue size
-                        true        // discard oldest
+                        // sampling interval
+                        1000.0,
+                        // filter, null means use default
+                        null,
+                        // queue size
+                        uint(10),
+                        // discard oldest
+                        true
                 );
 
                 MonitoredItemCreateRequest request = new MonitoredItemCreateRequest(
