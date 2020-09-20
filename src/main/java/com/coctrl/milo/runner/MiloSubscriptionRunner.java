@@ -93,7 +93,6 @@ public class MiloSubscriptionRunner implements Runner {
             }
             // let the client run for 5 seconds then terminate
             Thread.sleep(5000);
-            opcUaClient.disconnect().get();
         } catch (Exception e) {
             log.error("读值时出现了异常：{}", e.getMessage(), e);
         }

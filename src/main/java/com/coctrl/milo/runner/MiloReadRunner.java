@@ -32,7 +32,6 @@ public class MiloReadRunner implements Runner {
     public Object run(OpcUaClient opcUaClient) {
         try {
             List<ReadOrWrite> entityList = new ArrayList<>();
-            opcUaClient.connect().get();
             for (String id : identifiers) {
                 NodeId nodeId = new NodeId(2, id);
 
@@ -51,7 +50,6 @@ public class MiloReadRunner implements Runner {
                         .value(value)
                         .build());
             }
-            opcUaClient.disconnect().get();
             return entityList;
         } catch (Exception e) {
             log.error("读值时出现了异常：{}", e.getMessage(), e);

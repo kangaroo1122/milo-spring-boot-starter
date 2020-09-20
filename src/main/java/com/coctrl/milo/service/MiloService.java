@@ -87,6 +87,7 @@ public class MiloService {
         }
         try {
             client = createClient();
+            client.connect().get();
             queue.add(client);
             return client;
         } catch (Exception e) {

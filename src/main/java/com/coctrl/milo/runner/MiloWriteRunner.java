@@ -29,7 +29,6 @@ public class MiloWriteRunner implements Runner {
     @Override
     public Object run(OpcUaClient opcUaClient) {
         try {
-            opcUaClient.connect().get();
             List<NodeId> nodeIds = ImmutableList.of(new NodeId(2, entity.getIdentifier()));
 
             Variant variant = new Variant(entity.getValue());
@@ -45,7 +44,6 @@ public class MiloWriteRunner implements Runner {
             } else {
                 log.error("点位：{} 写入时出现了异常：{}", entity.getIdentifier(), status);
             }
-            opcUaClient.disconnect().get();
         } catch (Exception e) {
             log.error("写入时出现了异常：{}", e.getMessage(), e);
         }
