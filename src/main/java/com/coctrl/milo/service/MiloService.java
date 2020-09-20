@@ -35,7 +35,7 @@ import static org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned.
 @Service
 @Slf4j
 public class MiloService {
-    private MiloProperties properties;
+    private final MiloProperties properties;
 
     private Queue<OpcUaClient> queue = new ConcurrentLinkedQueue<>();
 
@@ -55,7 +55,6 @@ public class MiloService {
         }
     }
 
-    @SuppressWarnings("unchecked")
     public List<ReadOrWrite> readFromOpcUa(List<String> ids) {
         MiloReadRunner runner = new MiloReadRunner(ids);
         OpcUaClient client = connect();
