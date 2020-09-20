@@ -19,6 +19,8 @@ import java.util.List;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned.uint;
 
@@ -33,33 +35,68 @@ import static org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned.
 public class MiloService {
     private MiloProperties properties;
 
-    public MiloService() {
-    }
+    private Queue<OpcUaClient> queue = new ConcurrentLinkedQueue<>();
 
     public MiloService(MiloProperties properties) {
         this.properties = properties;
     }
 
     public void writeToOpcUa(ReadOrWrite entity) {
-        new MiloWriteRunner(entity).run(getConnect());
+        MiloWriteRunner runner = new MiloWriteRunner(entity);
+        OpcUaClient client = connect();
+        if (client != null) {
+            try {
+                runner.run(client);
+            } finally {
+                disconnect(client);
+            }
+        }
     }
 
     @SuppressWarnings("unchecked")
     public List<ReadOrWrite> readFromOpcUa(List<String> ids) {
-        return (List<ReadOrWrite>) new MiloReadRunner(ids).run(getConnect());
+        MiloReadRunner runner = new MiloReadRunner(ids);
+        OpcUaClient client = connect();
+        if (client != null) {
+            try {
+                return (List<ReadOrWrite>) runner.run(client);
+            } finally {
+                disconnect(client);
+            }
+        }
+        return null;
     }
 
     public Object subscriptionFromOpcUa(List<String> ids) {
-        return new MiloSubscriptionRunner(ids).run(getConnect());
+        MiloSubscriptionRunner runner = new MiloSubscriptionRunner(ids);
+        OpcUaClient client = connect();
+        if (client != null) {
+            try {
+                return runner.run(client);
+            } finally {
+                disconnect(client);
+            }
+        }
+        return null;
     }
 
-    private OpcUaClient getConnect() {
+    private OpcUaClient connect() {
+        OpcUaClient client = queue.poll();
+        if (client != null) {
+            return client;
+        }
         try {
-            return createClient();
+            client = createClient();
+            queue.add(client);
+            return client;
         } catch (Exception e) {
             log.error("OpcUaClient create error: ", e);
         }
         return null;
+    }
+
+    void disconnect(OpcUaClient client) {
+        queue.add(client);
     }
 
     private OpcUaClient createClient() throws Exception {
