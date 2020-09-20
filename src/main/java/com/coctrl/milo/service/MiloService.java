@@ -2,6 +2,7 @@ package com.coctrl.milo.service;
 
 import com.coctrl.milo.configuration.MiloProperties;
 import com.coctrl.milo.model.ReadOrWrite;
+import com.coctrl.milo.model.SubscriptValues;
 import com.coctrl.milo.runner.MiloReadRunner;
 import com.coctrl.milo.runner.MiloSubscriptionRunner;
 import com.coctrl.milo.runner.MiloWriteRunner;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -59,7 +61,7 @@ public class MiloService {
         OpcUaClient client = connect();
         if (client != null) {
             try {
-                return (List<ReadOrWrite>) runner.run(client);
+                return runner.run(client);
             } finally {
                 disconnect(client);
             }
@@ -67,15 +69,25 @@ public class MiloService {
         return null;
     }
 
-    public Object subscriptionFromOpcUa(List<String> ids) {
+    public void subscriptionFromOpcUa(List<String> ids) {
         MiloSubscriptionRunner runner = new MiloSubscriptionRunner(ids);
         OpcUaClient client = connect();
         if (client != null) {
             try {
-                return runner.run(client);
+                runner.run(client);
             } finally {
                 disconnect(client);
             }
+        }
+    }
+
+    public Map<String, Object> readSubscriptionValues(){
+        return SubscriptValues.getSubscriptValues();
+    }
+
+    public Object readSubscriptionValues(String id){
+        if (SubscriptValues.getSubscriptValues().containsKey(id)){
+            return SubscriptValues.getSubscriptValues().get(id);
         }
         return null;
     }

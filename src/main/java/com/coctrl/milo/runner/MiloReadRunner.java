@@ -18,9 +18,9 @@ import java.util.List;
  * @since 2020/4/14
  */
 @Slf4j
-public class MiloReadRunner implements Runner {
+public class MiloReadRunner {
     /**
-     * 点位list
+     * 要读的点位list
      */
     private final List<String> identifiers;
 
@@ -28,10 +28,9 @@ public class MiloReadRunner implements Runner {
         this.identifiers = identifiers;
     }
 
-    @Override
-    public Object run(OpcUaClient opcUaClient) {
+    public List<ReadOrWrite> run(OpcUaClient opcUaClient) {
+        List<ReadOrWrite> entityList = new ArrayList<>();
         try {
-            List<ReadOrWrite> entityList = new ArrayList<>();
             for (String id : identifiers) {
                 NodeId nodeId = new NodeId(2, id);
 
@@ -50,10 +49,9 @@ public class MiloReadRunner implements Runner {
                         .value(value)
                         .build());
             }
-            return entityList;
         } catch (Exception e) {
             log.error("读值时出现了异常：{}", e.getMessage(), e);
-            return null;
         }
+        return entityList;
     }
 }

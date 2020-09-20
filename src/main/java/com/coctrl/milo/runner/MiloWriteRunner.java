@@ -19,15 +19,14 @@ import java.util.concurrent.CompletableFuture;
  * @since 2020/4/14
  */
 @Slf4j
-public class MiloWriteRunner implements Runner {
+public class MiloWriteRunner {
     private final ReadOrWrite entity;
 
     public MiloWriteRunner(ReadOrWrite entity) {
         this.entity = entity;
     }
 
-    @Override
-    public Object run(OpcUaClient opcUaClient) {
+    public void run(OpcUaClient opcUaClient) {
         try {
             List<NodeId> nodeIds = ImmutableList.of(new NodeId(2, entity.getIdentifier()));
 
@@ -47,6 +46,5 @@ public class MiloWriteRunner implements Runner {
         } catch (Exception e) {
             log.error("写入时出现了异常：{}", e.getMessage(), e);
         }
-        return null;
     }
 }
