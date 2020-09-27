@@ -26,7 +26,7 @@ public class MiloWriteRunner {
         this.entity = entity;
     }
 
-    public void run(OpcUaClient opcUaClient) {
+    public boolean run(OpcUaClient opcUaClient) {
         try {
             List<NodeId> nodeIds = ImmutableList.of(new NodeId(2, entity.getIdentifier()));
 
@@ -43,8 +43,10 @@ public class MiloWriteRunner {
             } else {
                 log.error("点位：{} 写入时出现了异常：{}", entity.getIdentifier(), status);
             }
+            return status.isGood();
         } catch (Exception e) {
             log.error("写入时出现了异常：{}", e.getMessage(), e);
+            return false;
         }
     }
 }

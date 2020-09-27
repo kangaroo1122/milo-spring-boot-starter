@@ -43,16 +43,17 @@ public class MiloService {
         this.properties = properties;
     }
 
-    public void writeToOpcUa(ReadOrWrite entity) {
+    public boolean writeToOpcUa(ReadOrWrite entity) {
         MiloWriteRunner runner = new MiloWriteRunner(entity);
         OpcUaClient client = connect();
         if (client != null) {
             try {
-                runner.run(client);
+                return runner.run(client);
             } finally {
                 disconnect(client);
             }
         }
+        return false;
     }
 
     public List<ReadOrWrite> readFromOpcUa(List<String> ids) {
