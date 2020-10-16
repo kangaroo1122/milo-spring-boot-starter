@@ -34,8 +34,8 @@ public class MiloReadRunner {
             for (String id : identifiers) {
                 NodeId nodeId = new NodeId(2, id);
 
-                // 读取指定点位的值
-                DataValue dataValue = opcUaClient.readValue(0.0, TimestampsToReturn.Both, nodeId).get();
+                // 读取指定点位的值，10s超时
+                DataValue dataValue = opcUaClient.readValue(10000, TimestampsToReturn.Both, nodeId).get();
 
                 Object value = dataValue.getValue().getValue();
 
