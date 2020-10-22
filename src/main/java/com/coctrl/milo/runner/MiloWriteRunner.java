@@ -45,7 +45,7 @@ public class MiloWriteRunner {
             }
             return status.isGood();
         } catch (Exception e) {
-            log.error("写入时出现了异常：{}", e.getMessage(), e);
+            log.error("写入到 {} 时出现了异常：{}", entity.getIdentifier(), e.getMessage(), e);
             return false;
         }
     }
