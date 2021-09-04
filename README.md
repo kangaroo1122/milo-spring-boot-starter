@@ -13,7 +13,7 @@ coctrl:
 coctrl:
   milo:
     endpoint: opc.tcp://127.0.0.1:49320
-    anonymous: true
+    anonymous: false
     username: OPCUA
     password: opcua123
 ```
