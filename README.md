@@ -9,4 +9,12 @@ coctrl:
     endpoint: opc.tcp://127.0.0.1:49320
 ```
 
+```yaml
+coctrl:
+  milo:
+    endpoint: opc.tcp://127.0.0.1:49320
+    anonymous: true
+    username: OPCUA
+    password: opcua123
+```
 注入MiloService即可使用，支持：批量读、单个写（批量写，循环即可）、批量订阅（订阅不好使，推荐kepware使用MQTT实现订阅功能）
