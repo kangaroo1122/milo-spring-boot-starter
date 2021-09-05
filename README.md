@@ -83,7 +83,9 @@ public class MiloTest {
 
 new Variant(xxx)：
 > new Variant(String[])
+> 
 > new Variant(Unsigned.ushort("123"))
+> 
 > ....
 
 参数类型具体以标签数据类型为准
