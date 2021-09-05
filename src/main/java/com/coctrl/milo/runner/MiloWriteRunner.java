@@ -28,7 +28,13 @@ public class MiloWriteRunner {
         try {
             NodeId nodeId = new NodeId(2, entity.getIdentifier());
 
-            Variant variant = new Variant(entity.getValue());
+            Variant variant;
+
+            if (entity.getVariant() != null) {
+                variant = entity.getVariant();
+            } else {
+                variant = new Variant(entity.getValue());
+            }
 
             // 不需要写 status 和 timestamps
             DataValue dataValue = new DataValue(variant, null, null);

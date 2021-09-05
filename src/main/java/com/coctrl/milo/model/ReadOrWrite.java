@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
+import org.eclipse.milo.opcua.stack.core.types.builtin.Variant;
 
 /**
  * @author kangaroo hy
@@ -22,4 +23,6 @@ public class ReadOrWrite {
     private String identifier;
 
     private Object value;
+
+    private Variant variant;
 }
