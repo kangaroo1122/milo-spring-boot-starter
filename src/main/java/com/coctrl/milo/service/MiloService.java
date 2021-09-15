@@ -117,7 +117,7 @@ public class MiloService {
                 this.endpointUrl(),
                 endpoints ->
                         endpoints.stream()
-                                .filter(e -> securityPolicy().getUri().equals(e.getSecurityPolicyUri()))
+//                                .filter(e -> securityPolicy().getUri().equals(e.getSecurityPolicyUri()))
                                 .findFirst(),
                 configBuilder ->
                         configBuilder
