@@ -5,7 +5,7 @@ milo 封装工具包，yml配置OPC UA地址，是否匿名等信息，即可连
 ```yaml
 coctrl:
   milo:
-    anonymous: true
+    security-policy: none
     endpoint: opc.tcp://127.0.0.1:49320
 ```
 
@@ -13,7 +13,7 @@ coctrl:
 coctrl:
   milo:
     endpoint: opc.tcp://127.0.0.1:49320
-    anonymous: false
+    security-policy: base256
     username: OPCUA
     password: opcua123
 ```
