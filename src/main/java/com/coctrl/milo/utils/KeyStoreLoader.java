@@ -76,11 +76,11 @@ public class KeyStoreLoader {
             }
         }
 
-        Key serverPrivateKey = keyStore.getKey(CLIENT_ALIAS, PASSWORD);
-        if (serverPrivateKey instanceof PrivateKey) {
+        Key clientPrivateKey = keyStore.getKey(CLIENT_ALIAS, PASSWORD);
+        if (clientPrivateKey instanceof PrivateKey) {
             clientCertificate = (X509Certificate) keyStore.getCertificate(CLIENT_ALIAS);
-            PublicKey serverPublicKey = clientCertificate.getPublicKey();
-            clientKeyPair = new KeyPair(serverPublicKey, (PrivateKey) serverPrivateKey);
+            PublicKey clientPublicKey = clientCertificate.getPublicKey();
+            clientKeyPair = new KeyPair(clientPublicKey, (PrivateKey) clientPrivateKey);
         }
 
         return this;
