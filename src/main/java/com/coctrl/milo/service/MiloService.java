@@ -1,12 +1,28 @@
 package com.coctrl.milo.service;
 
 import com.coctrl.milo.configuration.MiloProperties;
-import com.coctrl.milo.model.HistoryRead;
+import com.coctrl.milo.exception.IdentityNotFoundException;
 import com.coctrl.milo.model.ReadOrWrite;
-import com.coctrl.milo.runner.*;
+import com.coctrl.milo.model.SubscriptValues;
+import com.coctrl.milo.runner.MiloReadRunner;
+import com.coctrl.milo.runner.MiloSubscriptionRunner;
+import com.coctrl.milo.runner.MiloWriteRunner;
+import com.coctrl.milo.utils.KeyStoreLoader;
+import lombok.extern.slf4j.Slf4j;
+import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
+import org.eclipse.milo.opcua.sdk.client.api.identity.AnonymousProvider;
+import org.eclipse.milo.opcua.sdk.client.api.identity.IdentityProvider;
+import org.eclipse.milo.opcua.sdk.client.api.identity.UsernameProvider;
+import org.eclipse.milo.opcua.stack.core.security.SecurityPolicy;
+import org.eclipse.milo.opcua.stack.core.types.builtin.LocalizedText;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
+import static org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned.uint;
 
 /**
  * @author kangaroo hy
@@ -15,30 +31,122 @@ import java.util.List;
  * @since 0.0.1
  */
 @Service
+@Slf4j
 public class MiloService {
-    private MiloProperties properties;
+    private final MiloProperties properties;
 
-    public MiloService() {
-    }
+    private Queue<OpcUaClient> queue = new ConcurrentLinkedQueue<>();
 
     public MiloService(MiloProperties properties) {
         this.properties = properties;
     }
 
-    public void writeToOpcUa(ReadOrWrite entity) {
-        new MiloClient(new MiloWriteRunner(entity, properties)).run();
+    public boolean writeToOpcUa(ReadOrWrite entity) {
+        MiloWriteRunner runner = new MiloWriteRunner(entity);
+        OpcUaClient client = connect();
+        if (client != null) {
+            try {
+                return runner.run(client);
+            } finally {
+                disconnect(client);
+            }
+        }
+        return false;
     }
 
-    @SuppressWarnings("unchecked")
     public List<ReadOrWrite> readFromOpcUa(List<String> ids) {
-        return (List<ReadOrWrite>) new MiloClient(new MiloReadRunner(ids, properties)).run();
+        MiloReadRunner runner = new MiloReadRunner(ids);
+        OpcUaClient client = connect();
+        if (client != null) {
+            try {
+                return runner.run(client);
+            } finally {
+                disconnect(client);
+            }
+        }
+        return null;
     }
 
-    public Object subscriptionFromOpcUa(List<String> ids) {
-        return new MiloClient(new MiloSubscriptionRunner(ids, properties)).run();
+    public void subscriptionFromOpcUa(List<String> ids) {
+        MiloSubscriptionRunner runner = new MiloSubscriptionRunner(ids);
+        OpcUaClient client = connect();
+        if (client != null) {
+            try {
+                runner.run(client);
+            } finally {
+                disconnect(client);
+            }
+        }
     }
 
-    public HistoryRead historyReadFromOpcUa(String id) {
-        return (HistoryRead) new MiloClient(new MiloHistoryReadRunner(id, properties)).run();
+    public Map<String, Object> readSubscriptionValues() {
+        return SubscriptValues.getSubscriptValues();
+    }
+
+    public Object readSubscriptionValues(String id) {
+        if (SubscriptValues.getSubscriptValues().containsKey(id)) {
+            return SubscriptValues.getSubscriptValues().get(id);
+        }
+        return null;
+    }
+
+    private OpcUaClient connect() {
+        OpcUaClient client = queue.poll();
+        if (client != null) {
+            return client;
+        }
+        try {
+            client = createClient();
+            client.connect().get();
+            queue.add(client);
+            return client;
+        } catch (Exception e) {
+            log.error("OpcUaClient create error: ", e);
+        }
+        return null;
+    }
+
+    void disconnect(OpcUaClient client) {
+        queue.add(client);
+    }
+
+    private OpcUaClient createClient() throws Exception {
+        KeyStoreLoader loader = new KeyStoreLoader().load();
+
+        return OpcUaClient.create(
+                this.endpointUrl(),
+                endpoints ->
+                        endpoints.stream()
+                                .filter(e -> securityPolicy().getUri().equals(e.getSecurityPolicyUri()))
+                                .findFirst(),
+                configBuilder ->
+                        configBuilder
+                                .setApplicationName(LocalizedText.english("milo opc-ua client"))
+                                .setApplicationUri("urn:coctrl:milo:client")
+                                .setCertificate(loader.getClientCertificate())
+                                .setKeyPair(loader.getClientKeyPair())
+                                .setIdentityProvider(this.identityProvider())
+                                .setRequestTimeout(uint(5000))
+                                .build()
+        );
+    }
+
+    private String endpointUrl() {
+        return properties.getEndpoint();
+    }
+
+    private SecurityPolicy securityPolicy() {
+        return properties.getSecurityPolicy();
+    }
+
+    private IdentityProvider identityProvider() {
+        if (properties.getSecurityPolicy().equals(SecurityPolicy.None)) {
+            return new AnonymousProvider();
+        }
+        if (properties.getUsername() == null || properties.getPassword() == null) {
+            throw new IdentityNotFoundException("连接信息未完善");
+        } else {
+            return new UsernameProvider(properties.getUsername(), properties.getPassword());
+        }
     }
 }

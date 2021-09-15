@@ -1,6 +1,6 @@
 package com.coctrl.milo.runner;
 
-import com.coctrl.milo.configuration.MiloProperties;
+import com.coctrl.milo.model.SubscriptValues;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.sdk.client.api.subscriptions.UaMonitoredItem;
@@ -29,21 +29,18 @@ import static org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned.
  * @since 2020/4/14
  */
 @Slf4j
-public class MiloSubscriptionRunner extends MiloRunner {
+public class MiloSubscriptionRunner {
     /**
      * 点位list
      */
     private final List<String> identifiers;
 
-    public MiloSubscriptionRunner(List<String> identifiers, MiloProperties properties) {
-        super(properties);
+    public MiloSubscriptionRunner(List<String> identifiers) {
         this.identifiers = identifiers;
     }
 
-    @Override
-    public Object run(OpcUaClient opcUaClient) {
+    public void run(OpcUaClient opcUaClient) {
         try {
-            opcUaClient.connect().get();
             // create a subscription @ 1000ms
             UaSubscription subscription = opcUaClient.getSubscriptionManager().createSubscription(1000.0).get();
             for (String identifier : identifiers) {
@@ -98,18 +95,12 @@ public class MiloSubscriptionRunner extends MiloRunner {
                     }
                 }
             }
-            // let the client run for 5 seconds then terminate
-            Thread.sleep(5000);
-            opcUaClient.disconnect().get();
         } catch (Exception e) {
             log.error("读值时出现了异常：{}", e.getMessage(), e);
         }
-        return null;
     }
 
     private void onSubscriptionValue(UaMonitoredItem item, DataValue value) {
-        log.info(
-                "subscription value received: item={}, value={}",
-                item.getReadValueId().getNodeId(), value.getValue());
+        SubscriptValues.getSubscriptValues().put(item.getReadValueId().getNodeId().getIdentifier().toString(), value.getValue().getValue());
     }
 }

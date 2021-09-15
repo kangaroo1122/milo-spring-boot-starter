@@ -1,6 +1,5 @@
 package com.coctrl.milo.runner;
 
-import com.coctrl.milo.configuration.MiloProperties;
 import com.coctrl.milo.model.ReadOrWrite;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
@@ -19,27 +18,24 @@ import java.util.List;
  * @since 2020/4/14
  */
 @Slf4j
-public class MiloReadRunner extends MiloRunner {
+public class MiloReadRunner {
     /**
-     * 点位list
+     * 要读的点位list
      */
     private final List<String> identifiers;
 
-    public MiloReadRunner(List<String> identifiers, MiloProperties properties) {
-        super(properties);
+    public MiloReadRunner(List<String> identifiers) {
         this.identifiers = identifiers;
     }
 
-    @Override
-    public Object run(OpcUaClient opcUaClient) {
+    public List<ReadOrWrite> run(OpcUaClient opcUaClient) {
+        List<ReadOrWrite> entityList = new ArrayList<>();
         try {
-            List<ReadOrWrite> entityList = new ArrayList<>();
-            opcUaClient.connect().get();
             for (String id : identifiers) {
                 NodeId nodeId = new NodeId(2, id);
 
-                // 读取指定点位的值
-                DataValue dataValue = opcUaClient.readValue(0.0, TimestampsToReturn.Both, nodeId).get();
+                // 读取指定点位的值，10s超时
+                DataValue dataValue = opcUaClient.readValue(10000, TimestampsToReturn.Both, nodeId).get();
 
                 Object value = dataValue.getValue().getValue();
 
@@ -53,11 +49,9 @@ public class MiloReadRunner extends MiloRunner {
                         .value(value)
                         .build());
             }
-            opcUaClient.disconnect().get();
-            return entityList;
         } catch (Exception e) {
             log.error("读值时出现了异常：{}", e.getMessage(), e);
-            return null;
         }
+        return entityList;
     }
 }
