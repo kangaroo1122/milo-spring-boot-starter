@@ -8,6 +8,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.*;
 import java.security.cert.X509Certificate;
 import java.util.regex.Pattern;
@@ -24,10 +25,17 @@ public class KeyStoreLoader {
     private X509Certificate clientCertificate;
     private KeyPair clientKeyPair;
 
-    public KeyStoreLoader load(Path baseDir) throws Exception {
+    public KeyStoreLoader load() throws Exception {
+        Path securityTempDir = Paths.get(System.getProperty("java.io.tmpdir"), "security");
+        Files.createDirectories(securityTempDir);
+        if (!Files.exists(securityTempDir)) {
+            throw new Exception("unable to create security dir: " + securityTempDir);
+        }
+        log.info("security temp dir: {}", securityTempDir.toAbsolutePath());
+
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
 
-        Path serverKeyStore = baseDir.resolve("milo-client.pfx");
+        Path serverKeyStore = securityTempDir.resolve("milo-client.pfx");
 
         log.info("Loading KeyStore at {}", serverKeyStore);
 
@@ -37,15 +45,15 @@ public class KeyStoreLoader {
             KeyPair keyPair = SelfSignedCertificateGenerator.generateRsaKeyPair(2048);
 
             SelfSignedCertificateBuilder builder = new SelfSignedCertificateBuilder(keyPair)
-                .setCommonName("Milo Client")
-                .setOrganization("coctrl")
-                .setOrganizationalUnit("dev")
-                .setLocalityName("Folsom")
-                .setStateName("CA")
-                .setCountryCode("US")
-                .setApplicationUri("urn:coctrl:milo:client")
-                .addDnsName("localhost")
-                .addIpAddress("127.0.0.1");
+                    .setCommonName("Milo Client")
+                    .setOrganization("coctrl")
+                    .setOrganizationalUnit("dev")
+                    .setLocalityName("Folsom")
+                    .setStateName("CA")
+                    .setCountryCode("US")
+                    .setApplicationUri("urn:coctrl:milo:client")
+                    .addDnsName("localhost")
+                    .addIpAddress("127.0.0.1");
 
             // Get as many hostnames and IP addresses as we can listed in the certificate.
             for (String hostname : HostnameUtil.getHostnames("0.0.0.0")) {

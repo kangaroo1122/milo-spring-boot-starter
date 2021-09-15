@@ -1,6 +1,7 @@
 package com.coctrl.milo.service;
 
 import com.coctrl.milo.configuration.MiloProperties;
+import com.coctrl.milo.exception.IdentityNotFoundException;
 import com.coctrl.milo.model.ReadOrWrite;
 import com.coctrl.milo.model.SubscriptValues;
 import com.coctrl.milo.runner.MiloReadRunner;
@@ -17,9 +18,6 @@ import org.eclipse.milo.opcua.stack.core.types.builtin.LocalizedText;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -81,12 +79,12 @@ public class MiloService {
         }
     }
 
-    public Map<String, Object> readSubscriptionValues(){
+    public Map<String, Object> readSubscriptionValues() {
         return SubscriptValues.getSubscriptValues();
     }
 
-    public Object readSubscriptionValues(String id){
-        if (SubscriptValues.getSubscriptValues().containsKey(id)){
+    public Object readSubscriptionValues(String id) {
+        if (SubscriptValues.getSubscriptValues().containsKey(id)) {
             return SubscriptValues.getSubscriptValues().get(id);
         }
         return null;
@@ -113,20 +111,13 @@ public class MiloService {
     }
 
     private OpcUaClient createClient() throws Exception {
-        Path securityTempDir = Paths.get(System.getProperty("java.io.tmpdir"), "security");
-        Files.createDirectories(securityTempDir);
-        if (!Files.exists(securityTempDir)) {
-            throw new Exception("unable to create security dir: " + securityTempDir);
-        }
-        log.info("security temp dir: {}", securityTempDir.toAbsolutePath());
-
-        KeyStoreLoader loader = new KeyStoreLoader().load(securityTempDir);
+        KeyStoreLoader loader = new KeyStoreLoader().load();
 
         return OpcUaClient.create(
                 this.endpointUrl(),
                 endpoints ->
                         endpoints.stream()
-                                //.filter(e -> true)
+                                .filter(e -> securityPolicy().getUri().equals(e.getSecurityPolicyUri()))
                                 .findFirst(),
                 configBuilder ->
                         configBuilder
@@ -145,16 +136,17 @@ public class MiloService {
     }
 
     private SecurityPolicy securityPolicy() {
-        if (!properties.getAnonymous()) {
-            return SecurityPolicy.Basic256Sha256;
-        }
-        return SecurityPolicy.None;
+        return properties.getSecurityPolicy();
     }
 
     private IdentityProvider identityProvider() {
-        if (!properties.getAnonymous() && properties.getUsername() != null) {
+        if (properties.getSecurityPolicy().equals(SecurityPolicy.None)) {
+            return new AnonymousProvider();
+        }
+        if (properties.getUsername() == null || properties.getPassword() == null) {
+            throw new IdentityNotFoundException("连接信息未完善");
+        } else {
             return new UsernameProvider(properties.getUsername(), properties.getPassword());
         }
-        return new AnonymousProvider();
     }
 }

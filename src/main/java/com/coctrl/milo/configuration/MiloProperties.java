@@ -1,6 +1,7 @@
 package com.coctrl.milo.configuration;
 
 import lombok.Data;
+import org.eclipse.milo.opcua.stack.core.security.SecurityPolicy;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -20,9 +21,9 @@ public class MiloProperties {
     private String endpoint;
 
     /**
-     * 是否匿名访问
+     * 安全策略
      */
-    private Boolean anonymous;
+    private SecurityPolicy securityPolicy = SecurityPolicy.None;
 
     /**
      * 用户名
