@@ -1,6 +1,7 @@
 package com.coctrl.milo.service;
 
 import com.coctrl.milo.configuration.MiloProperties;
+import com.coctrl.milo.exception.EndPointNotFoundException;
 import com.coctrl.milo.exception.IdentityNotFoundException;
 import com.coctrl.milo.model.ReadOrWrite;
 import com.coctrl.milo.model.SubscriptValues;
@@ -38,6 +39,9 @@ public class MiloService {
     private Queue<OpcUaClient> queue = new ConcurrentLinkedQueue<>();
 
     public MiloService(MiloProperties properties) {
+        if (properties.getEndpoint() == null || "".equals(properties.getEndpoint())) {
+            throw new EndPointNotFoundException("请配置OPC UA地址信息");
+        }
         this.properties = properties;
     }
 
