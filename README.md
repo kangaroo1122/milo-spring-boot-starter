@@ -32,6 +32,9 @@ coctrl:
 注入MiloService即可使用，支持：批量读、单个写（批量写，循环即可）、批量订阅（订阅不好使，推荐kepware使用MQTT实现订阅功能）
 
 其中：写值是可能需要指定数据类型，视点位情况而定
+
+Opc后边的字段对应Kepware中的tag数据类型（Ua除外，为通用类型）
+
 ```java
 @SpringBootTest
 @RunWith(SpringRunner.class)
@@ -65,6 +68,13 @@ public class MiloTest {
                         //Kep中是Short类型，即：Int16，Java中的short类型
                         .value((short) 123)
                         .build());
+        //或者
+        miloService.writeToOpcShort(
+                Write.builder()
+                        .identifier("GA.T1.Short")
+                        //Kep中是Short类型，即：Int16
+                        .value(123)
+                        .build());
         miloService.writeToOpcUa(
                 ReadOrWrite.builder()
                         .identifier("GA.T1.String")
@@ -75,6 +85,13 @@ public class MiloTest {
                         .identifier("GA.T1.Word")
                         //Kep中是Word类型，即：UInt16，无符号
                         .variant(new Variant(Unsigned.ushort("123")))
+                        .build());
+        //或者
+        miloService.writeToOpcWord(
+                Write.builder()
+                        .identifier("GA.T1.Word")
+                        //Kep中是Word类型，即：UInt16，无符号
+                        .value(123)
                         .build());
         miloService.writeToOpcUa(
                 ReadOrWrite.builder()
@@ -87,6 +104,19 @@ public class MiloTest {
                         .identifier("GA.T1.Double")
                         //Kep中是Double类型
                         .value(123.123)
+                        .build());
+
+        miloService.writeToOpcByte(
+                Write.builder()
+                        .identifier("GA.BIT_8.Byte1")
+                        //Kep中是Byte类型，8位无符号整数
+                        .value(123)
+                        .build());
+        miloService.writeToOpcChar(
+                Write.builder()
+                        .identifier("GA.BIT_8.Char1")
+                        //Kep中是Char类型，8位带符号整数
+                        .value(-123)
                         .build());
     }
 }
