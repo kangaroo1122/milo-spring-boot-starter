@@ -17,7 +17,6 @@ import org.eclipse.milo.opcua.stack.core.types.structured.MonitoringParameters;
 import org.eclipse.milo.opcua.stack.core.types.structured.ReadValueId;
 
 import java.util.List;
-import java.util.function.BiConsumer;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned.uint;
@@ -76,7 +75,7 @@ public class MiloSubscriptionRunner {
                 // when creating items in MonitoringMode.Reporting this callback is where each item needs to have its
                 // value/event consumer hooked up. The alternative is to create the item in sampling mode, hook up the
                 // consumer after the creation call completes, and then change the mode for all items to reporting.
-                BiConsumer<UaMonitoredItem, Integer> onItemCreated =
+                UaSubscription.ItemCreationCallback onItemCreated =
                         (item, id) -> item.setValueConsumer(this::onSubscriptionValue);
 
                 List<UaMonitoredItem> items = subscription.createMonitoredItems(
