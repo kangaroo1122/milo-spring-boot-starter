@@ -14,7 +14,7 @@ import java.util.*;
  */
 @Slf4j
 public class HostnameUtil {
-    public HostnameUtil() {
+    private HostnameUtil() {
     }
 
     public static String getHostname() {

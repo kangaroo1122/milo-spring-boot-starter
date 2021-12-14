@@ -3,9 +3,9 @@ package com.coctrl.milo.service;
 import com.coctrl.milo.configuration.MiloProperties;
 import com.coctrl.milo.exception.EndPointNotFoundException;
 import com.coctrl.milo.exception.IdentityNotFoundException;
-import com.coctrl.milo.model.ReadOrWrite;
+import com.coctrl.milo.model.ReadWriteEntity;
 import com.coctrl.milo.model.SubscriptValues;
-import com.coctrl.milo.model.Write;
+import com.coctrl.milo.model.WriteEntity;
 import com.coctrl.milo.runner.MiloReadRunner;
 import com.coctrl.milo.runner.MiloSubscriptionRunner;
 import com.coctrl.milo.runner.MiloWriteRunner;
@@ -48,11 +48,31 @@ public class MiloService {
     }
 
     /**
-     * 写入kep点位值
+     * 指定类型 写入kep点位值
      * @param entity 待写入数据
      */
-    public boolean writeToOpcUa(ReadOrWrite entity) {
+    public void writeSpecifyType(WriteEntity entity) {
         MiloWriteRunner runner = new MiloWriteRunner(entity);
+        OpcUaClient client = connect();
+        if (client != null) {
+            try {
+                runner.run(client);
+            } finally {
+                disconnect(client);
+            }
+        }
+    }
+
+    /**
+     * 写入kep点位值
+     *
+     * @param entity 待写入数据
+     */
+    public boolean writeToOpcUa(ReadWriteEntity entity) {
+        MiloWriteRunner runner = new MiloWriteRunner(WriteEntity.builder()
+                .identifier(entity.getIdentifier())
+                .variant(new Variant(entity.getValue()))
+                .build());
         OpcUaClient client = connect();
         if (client != null) {
             try {
@@ -70,10 +90,10 @@ public class MiloService {
      *
      * @param entity 待写入数据
      */
-    public void writeToOpcChar(Write entity) {
-        MiloWriteRunner runner = new MiloWriteRunner(ReadOrWrite.builder()
+    public void writeToOpcChar(ReadWriteEntity entity) {
+        MiloWriteRunner runner = new MiloWriteRunner(WriteEntity.builder()
                 .identifier(entity.getIdentifier())
-                .value(entity.getValue().byteValue())
+                .variant(new Variant(((Integer) entity.getValue()).byteValue()))
                 .build());
         OpcUaClient client = connect();
         if (client != null) {
@@ -91,10 +111,10 @@ public class MiloService {
      *
      * @param entity 待写入数据
      */
-    public void writeToOpcByte(Write entity) {
-        MiloWriteRunner runner = new MiloWriteRunner(ReadOrWrite.builder()
+    public void writeToOpcByte(ReadWriteEntity entity) {
+        MiloWriteRunner runner = new MiloWriteRunner(WriteEntity.builder()
                 .identifier(entity.getIdentifier())
-                .variant(new Variant(Unsigned.ubyte(entity.getValue())))
+                .variant(new Variant(Unsigned.ubyte((Integer) entity.getValue())))
                 .build());
         OpcUaClient client = connect();
         if (client != null) {
@@ -112,10 +132,10 @@ public class MiloService {
      *
      * @param entity 待写入数据
      */
-    public void writeToOpcShort(Write entity) {
-        MiloWriteRunner runner = new MiloWriteRunner(ReadOrWrite.builder()
+    public void writeToOpcShort(ReadWriteEntity entity) {
+        MiloWriteRunner runner = new MiloWriteRunner(WriteEntity.builder()
                 .identifier(entity.getIdentifier())
-                .value(entity.getValue().shortValue())
+                .variant(new Variant(((Integer) entity.getValue()).shortValue()))
                 .build());
         OpcUaClient client = connect();
         if (client != null) {
@@ -133,10 +153,10 @@ public class MiloService {
      *
      * @param entity 待写入数据
      */
-    public void writeToOpcWord(Write entity) {
-        MiloWriteRunner runner = new MiloWriteRunner(ReadOrWrite.builder()
+    public void writeToOpcWord(ReadWriteEntity entity) {
+        MiloWriteRunner runner = new MiloWriteRunner(WriteEntity.builder()
                 .identifier(entity.getIdentifier())
-                .variant(new Variant(Unsigned.ushort(entity.getValue())))
+                .variant(new Variant(Unsigned.ushort((Integer) entity.getValue())))
                 .build());
         OpcUaClient client = connect();
         if (client != null) {
@@ -150,10 +170,11 @@ public class MiloService {
 
     /**
      * 读取kep点位值
+     *
      * @param ids 点位id数组
      * @return
      */
-    public List<ReadOrWrite> readFromOpcUa(List<String> ids) {
+    public List<ReadWriteEntity> readFromOpcUa(List<String> ids) {
         MiloReadRunner runner = new MiloReadRunner(ids);
         OpcUaClient client = connect();
         if (client != null) {
@@ -168,6 +189,7 @@ public class MiloService {
 
     /**
      * 订阅kep点位值
+     *
      * @param ids 点位id数组
      * @return
      */

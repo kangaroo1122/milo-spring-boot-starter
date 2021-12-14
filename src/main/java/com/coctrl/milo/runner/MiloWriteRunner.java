@@ -1,6 +1,6 @@
 package com.coctrl.milo.runner;
 
-import com.coctrl.milo.model.ReadOrWrite;
+import com.coctrl.milo.model.WriteEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.stack.core.types.builtin.DataValue;
@@ -18,9 +18,9 @@ import java.util.concurrent.CompletableFuture;
  */
 @Slf4j
 public class MiloWriteRunner {
-    private final ReadOrWrite entity;
+    private final WriteEntity entity;
 
-    public MiloWriteRunner(ReadOrWrite entity) {
+    public MiloWriteRunner(WriteEntity entity) {
         this.entity = entity;
     }
 
@@ -28,13 +28,7 @@ public class MiloWriteRunner {
         try {
             NodeId nodeId = new NodeId(2, entity.getIdentifier());
 
-            Variant variant;
-
-            if (entity.getVariant() != null) {
-                variant = entity.getVariant();
-            } else {
-                variant = new Variant(entity.getValue());
-            }
+            Variant variant = entity.getVariant();
 
             // 不需要写 status 和 timestamps
             DataValue dataValue = new DataValue(variant, null, null);

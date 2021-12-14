@@ -9,6 +9,7 @@ import lombok.experimental.Accessors;
 /**
  * @author kangaroo hy
  * @version 0.0.1
+ * @desc
  * @since 2020/4/13
  */
 @Data
@@ -16,7 +17,9 @@ import lombok.experimental.Accessors;
 @AllArgsConstructor
 @NoArgsConstructor
 @Accessors(chain = true)
-public class Write {
+public class ReadWriteEntity {
+
     private String identifier;
-    private Integer value;
+
+    private Object value;
 }

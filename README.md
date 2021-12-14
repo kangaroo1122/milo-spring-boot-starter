@@ -28,12 +28,70 @@ coctrl:
 
 同时配置上 用户名/密码 即可访问服务器
 
-## 使用
+## 写
 注入MiloService即可使用，支持：批量读、单个写（批量写，循环即可）、批量订阅（订阅不好使，推荐kepware使用MQTT实现订阅功能）
 
 其中：写值是可能需要指定数据类型，视点位情况而定
 
 Opc后边的字段对应Kepware中的tag数据类型（Ua除外，为通用类型）
+
+![img.png](img.png)
+
+### 通用类型
+
+如Kep类型为：Boolean、LLong、Long、String、Float、Double，调用方法：`miloService.writeToOpcUa(ReadWriteEntity entity)`
+
+```java
+@SpringBootTest
+@RunWith(SpringRunner.class)
+public class MiloTest {
+    @Autowired
+    MiloService miloService;
+    
+    @Test
+    public void writeToOpcUa() {
+        miloService.writeToOpcUa(
+                ReadWriteEntity.builder()
+                        .identifier("GA.T1.Boolean")
+                        //Kep中是Boolean类型
+                        .value(true)
+                        .build());
+        miloService.writeToOpcUa(
+                ReadWriteEntity.builder()
+                        .identifier("GA.T1.LLong")
+                        //Kep中是LLong类型，即：Int64，Java中的Long类型
+                        .value(1235468L)
+                        .build());
+        miloService.writeToOpcUa(
+                ReadWriteEntity.builder()
+                        .identifier("GA.T1.Long")
+                        //Kep中是Long类型，即：Int32，Java中的int类型
+                        .value(123456)
+                        .build());
+        miloService.writeToOpcUa(
+                ReadWriteEntity.builder()
+                        .identifier("GA.T1.String")
+                        .value("字符串")
+                        .build());
+        miloService.writeToOpcUa(
+                ReadWriteEntity.builder()
+                        .identifier("GA.T1.Float")
+                        //Kep中是Float类型
+                        .value(123.123F)
+                        .build());
+        miloService.writeToOpcUa(
+                ReadWriteEntity.builder()
+                        .identifier("GA.T1.Double")
+                        //Kep中是Double类型
+                        .value(123.123)
+                        .build());
+    }
+}
+```
+
+### 已提供方法的类型
+
+如Kep类型为：Short、Word、Byte、Char，调用方法：`miloService.writeToOpcXXX(ReadWriteEntity entity)`，XXX对应kep类型
 
 ```java
 @SpringBootTest
@@ -44,84 +102,37 @@ public class MiloTest {
 
     @Test
     public void writeToOpcUa() {
-        miloService.writeToOpcUa(
-                ReadOrWrite.builder()
-                        .identifier("GA.T1.Boolean")
-                        //Kep中是Boolean类型
-                        .value(true)
-                        .build());
-        miloService.writeToOpcUa(
-                ReadOrWrite.builder()
-                        .identifier("GA.T1.LLong")
-                        //Kep中是LLong类型，即：Int64，Java中的Long类型
-                        .value(1235468L)
-                        .build());
-        miloService.writeToOpcUa(
-                ReadOrWrite.builder()
-                        .identifier("GA.T1.Long")
-                        //Kep中是Long类型，即：Int32，Java中的int类型
-                        .value(123456)
-                        .build());
-        miloService.writeToOpcUa(
-                ReadOrWrite.builder()
-                        .identifier("GA.T1.Short")
-                        //Kep中是Short类型，即：Int16，Java中的short类型
-                        .value((short) 123)
-                        .build());
-        //或者
         miloService.writeToOpcShort(
-                Write.builder()
+                ReadWriteEntity.builder()
                         .identifier("GA.T1.Short")
-                        //Kep中是Short类型，即：Int16
-                        .value(123)
+                        //Kep中是Short类型，即：Int16，带符号整数
+                        .value(-123)
                         .build());
-        miloService.writeToOpcUa(
-                ReadOrWrite.builder()
-                        .identifier("GA.T1.String")
-                        .value("字符串")
-                        .build());
-        miloService.writeToOpcUa(
-                ReadOrWrite.builder()
-                        .identifier("GA.T1.Word")
-                        //Kep中是Word类型，即：UInt16，无符号
-                        .variant(new Variant(Unsigned.ushort("123")))
-                        .build());
-        //或者
         miloService.writeToOpcWord(
-                Write.builder()
+                ReadWriteEntity.builder()
                         .identifier("GA.T1.Word")
-                        //Kep中是Word类型，即：UInt16，无符号
+                        //Kep中是Word类型，即：UInt16，无符号整数
                         .value(123)
                         .build());
-        miloService.writeToOpcUa(
-                ReadOrWrite.builder()
-                        .identifier("GA.T1.Float")
-                        //Kep中是Float类型
-                        .value(123.123F)
-                        .build());
-        miloService.writeToOpcUa(
-                ReadOrWrite.builder()
-                        .identifier("GA.T1.Double")
-                        //Kep中是Double类型
-                        .value(123.123)
-                        .build());
-
         miloService.writeToOpcByte(
-                Write.builder()
-                        .identifier("GA.BIT_8.Byte1")
+                ReadWriteEntity.builder()
+                        .identifier("GA.BIT_8.Byte")
                         //Kep中是Byte类型，8位无符号整数
                         .value(123)
                         .build());
         miloService.writeToOpcChar(
-                Write.builder()
-                        .identifier("GA.BIT_8.Char1")
+                ReadWriteEntity.builder()
+                        .identifier("GA.BIT_8.Char")
                         //Kep中是Char类型，8位带符号整数
                         .value(-123)
                         .build());
     }
 }
 ```
-其他的数据类型，以此类推，.value(xxx) 写值失败，则需要转为自定义指定类型.variant(new Variant(xxx))
+
+### 其他类型
+
+其他的数据类型，则需要调用方法：`miloService.writeSpecifyType(WriteEntity entity)`，自行指定转换类型.variant(new Variant(xxx))
 
 new Variant(xxx)：
 > new Variant(String[])
@@ -130,6 +141,31 @@ new Variant(xxx)：
 > 
 > ....
 
-参数类型具体以标签数据类型为准
+参数类型具体以标签数据类型为准，列如：
 
-两者同时存在，则以 .variant() 为准
+```java
+@SpringBootTest
+@RunWith(SpringRunner.class)
+public class MiloTest {
+    @Autowired
+    MiloService miloService;
+
+    @Test
+    public void writeToOpcUa() {
+        miloService.writeSpecifyType(
+                WriteEntity.builder()
+                        .identifier("GA.T1.Word")
+                        //Kep中是Word类型，即：UInt16，无符号
+                        .variant(new Variant(Unsigned.ushort("123")))
+                        .build());
+    }
+}
+```
+
+## 读
+
+读比较简单，传相应的TAG id数组即可，调用方法：readFromOpcUa(List<String> ids)
+
+id格式：通道名.设备名.TAG
+
+如：GA.T1.T1001R_1

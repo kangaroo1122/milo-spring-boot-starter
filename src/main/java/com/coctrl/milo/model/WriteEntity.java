@@ -10,7 +10,6 @@ import org.eclipse.milo.opcua.stack.core.types.builtin.Variant;
 /**
  * @author kangaroo hy
  * @version 0.0.1
- * @desc
  * @since 2020/4/13
  */
 @Data
@@ -18,11 +17,7 @@ import org.eclipse.milo.opcua.stack.core.types.builtin.Variant;
 @AllArgsConstructor
 @NoArgsConstructor
 @Accessors(chain = true)
-public class ReadOrWrite {
-
+public class WriteEntity {
     private String identifier;
-
-    private Object value;
-
     private Variant variant;
 }

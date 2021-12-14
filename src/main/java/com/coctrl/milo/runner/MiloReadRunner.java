@@ -1,6 +1,6 @@
 package com.coctrl.milo.runner;
 
-import com.coctrl.milo.model.ReadOrWrite;
+import com.coctrl.milo.model.ReadWriteEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.stack.core.types.builtin.DataValue;
@@ -28,8 +28,8 @@ public class MiloReadRunner {
         this.identifiers = identifiers;
     }
 
-    public List<ReadOrWrite> run(OpcUaClient opcUaClient) {
-        List<ReadOrWrite> entityList = new ArrayList<>();
+    public List<ReadWriteEntity> run(OpcUaClient opcUaClient) {
+        List<ReadWriteEntity> entityList = new ArrayList<>();
         try {
             for (String id : identifiers) {
                 NodeId nodeId = new NodeId(2, id);
@@ -44,7 +44,7 @@ public class MiloReadRunner {
                 if (status.isGood()) {
                     log.info("读取点位 '{}' 的值为 {}", nodeId, value);
                 }
-                entityList.add(ReadOrWrite.builder()
+                entityList.add(ReadWriteEntity.builder()
                         .identifier(id)
                         .value(value)
                         .build());
