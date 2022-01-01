@@ -28,13 +28,13 @@ import static org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned.
  * @since 2020/4/14
  */
 @Slf4j
-public class MiloSubscriptionRunner {
+public class SubscriptionRunner {
     /**
      * 点位list
      */
     private final List<String> identifiers;
 
-    public MiloSubscriptionRunner(List<String> identifiers) {
+    public SubscriptionRunner(List<String> identifiers) {
         this.identifiers = identifiers;
     }
 

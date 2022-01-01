@@ -18,13 +18,13 @@ import java.util.List;
  * @since 2020/4/14
  */
 @Slf4j
-public class MiloReadRunner {
+public class ReadRunner {
     /**
      * 要读的点位list
      */
     private final List<String> identifiers;
 
-    public MiloReadRunner(List<String> identifiers) {
+    public ReadRunner(List<String> identifiers) {
         this.identifiers = identifiers;
     }
 

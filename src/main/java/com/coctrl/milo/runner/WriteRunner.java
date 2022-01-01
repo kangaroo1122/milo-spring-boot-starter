@@ -8,8 +8,6 @@ import org.eclipse.milo.opcua.stack.core.types.builtin.NodeId;
 import org.eclipse.milo.opcua.stack.core.types.builtin.StatusCode;
 import org.eclipse.milo.opcua.stack.core.types.builtin.Variant;
 
-import java.util.concurrent.CompletableFuture;
-
 /**
  * @author kangaroo hy
  * @version 0.0.1
@@ -17,10 +15,10 @@ import java.util.concurrent.CompletableFuture;
  * @since 2020/4/14
  */
 @Slf4j
-public class MiloWriteRunner {
+public class WriteRunner {
     private final WriteEntity entity;
 
-    public MiloWriteRunner(WriteEntity entity) {
+    public WriteRunner(WriteEntity entity) {
         this.entity = entity;
     }
 
@@ -33,8 +31,7 @@ public class MiloWriteRunner {
             // 不需要写 status 和 timestamps
             DataValue dataValue = new DataValue(variant, null, null);
 
-            CompletableFuture<StatusCode> future = opcUaClient.writeValue(nodeId, dataValue);
-            StatusCode status = future.get();
+            StatusCode status = opcUaClient.writeValue(nodeId, dataValue).join();
             if (status.isGood()) {
                 log.info("将值 '{}' 写入到点位：{} 成功", variant, nodeId);
             } else {
