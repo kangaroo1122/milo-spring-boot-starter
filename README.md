@@ -152,11 +152,17 @@ public class MiloTest {
 
     @Test
     public void writeToOpcUa() {
+        UByte[] bytes = new UByte[10];
+        bytes[0] = UByte.valueOf(1);
+        bytes[1] = UByte.valueOf(2);
+        bytes[2] = UByte.valueOf(3);
+        bytes[3] = UByte.valueOf(4);
+
         miloService.writeSpecifyType(
                 WriteEntity.builder()
-                        .identifier("GA.T1.Word")
-                        //Kep中是Word类型，即：UInt16，无符号
-                        .variant(new Variant(Unsigned.ushort("123")))
+                        .identifier("GA.BIT_8.Bytes")
+                        //Kep中是Byte Array类型
+                        .variant(new Variant(bytes))
                         .build());
     }
 }

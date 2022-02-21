@@ -18,13 +18,13 @@ import java.util.List;
  * @since 2020/4/14
  */
 @Slf4j
-public class ReadRunner {
+public class ReadValuesRunner {
     /**
      * 要读的点位list
      */
     private final List<String> identifiers;
 
-    public ReadRunner(List<String> identifiers) {
+    public ReadValuesRunner(List<String> identifiers) {
         this.identifiers = identifiers;
     }
 

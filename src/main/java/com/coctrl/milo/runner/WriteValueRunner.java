@@ -15,10 +15,10 @@ import org.eclipse.milo.opcua.stack.core.types.builtin.Variant;
  * @since 2020/4/14
  */
 @Slf4j
-public class WriteRunner {
+public class WriteValueRunner {
     private final WriteEntity entity;
 
-    public WriteRunner(WriteEntity entity) {
+    public WriteValueRunner(WriteEntity entity) {
         this.entity = entity;
     }
 

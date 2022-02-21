@@ -1,4 +1,4 @@
-package com.coctrl.milo.runner;
+package com.coctrl.milo.runner.subscription;
 
 import com.coctrl.milo.model.SubscriptValues;
 import lombok.extern.slf4j.Slf4j;
