@@ -45,10 +45,10 @@ public class ManagedSubscriptionRunner {
         final CountDownLatch downLatch = new CountDownLatch(1);
 
         //添加订阅监听器，用于处理断线重连后的订阅问题
-        opcUaClient.getSubscriptionManager().addSubscriptionListener(new CustomSubscriptionListener(opcUaClient, identifiers));
+        opcUaClient.getSubscriptionManager().addSubscriptionListener(new CustomSubscriptionListener(opcUaClient));
 
         //处理订阅逻辑
-        handler(opcUaClient, identifiers);
+        handler(opcUaClient);
 
         try {
             //持续监听
@@ -58,11 +58,7 @@ public class ManagedSubscriptionRunner {
         }
     }
 
-    private void handler(OpcUaClient opcUaClient, List<String> identifiers) {
-        handler(opcUaClient, identifiers, samplingInterval);
-    }
-
-    private void handler(OpcUaClient opcUaClient, List<String> identifiers, double samplingInterval) {
+    private void handler(OpcUaClient opcUaClient) {
         try {
             //创建订阅
             ManagedSubscription subscription = ManagedSubscription.create(opcUaClient, samplingInterval);
@@ -86,11 +82,9 @@ public class ManagedSubscriptionRunner {
 
     private class CustomSubscriptionListener implements UaSubscriptionManager.SubscriptionListener {
         private final OpcUaClient client;
-        private final List<String> identifiers;
 
-        public CustomSubscriptionListener(OpcUaClient client, List<String> identifiers) {
+        public CustomSubscriptionListener(OpcUaClient client) {
             this.client = client;
-            this.identifiers = identifiers;
         }
 
         /**
@@ -102,7 +96,7 @@ public class ManagedSubscriptionRunner {
         public void onSubscriptionTransferFailed(UaSubscription uaSubscription, StatusCode statusCode) {
             log.debug("恢复订阅失败 需要重新订阅");
             //在回调方法中重新订阅
-            handler(client, identifiers);
+            handler(client);
         }
     }
 }
