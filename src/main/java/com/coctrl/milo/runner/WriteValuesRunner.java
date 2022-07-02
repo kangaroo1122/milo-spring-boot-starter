@@ -27,7 +27,7 @@ public class WriteValuesRunner {
         try {
             if (!entities.isEmpty()) {
                 List<NodeId> nodeIds = new LinkedList<>();
-                List<DataValue>  dataValues = new LinkedList<>();
+                List<DataValue> dataValues = new LinkedList<>();
                 for (WriteEntity entity : entities) {
                     nodeIds.add(new NodeId(2, entity.getIdentifier()));
                     dataValues.add(new DataValue(entity.getVariant(), null, null));
