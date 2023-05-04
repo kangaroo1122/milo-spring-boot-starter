@@ -4,20 +4,21 @@ milo 封装工具包，yml配置OPC UA地址，是否匿名等信息，即可连
 
 ## 配置
 ```yaml
-coctrl:
+kangaroohy:
   milo:
     endpoint: opc.tcp://127.0.0.1:49320
     security-policy: none
 ```
 
 ```yaml
-coctrl:
+kangaroohy:
   milo:
     endpoint: opc.tcp://127.0.0.1:49320
     security-policy: basic256sha256
     username: OPCUA
     password: 123456
 ```
+
 特别提醒：
 
 在kepware中，用户名/密码访问时，opcua配置，安全策略中三个策略全部勾选
@@ -27,6 +28,20 @@ coctrl:
 此时，security-policy可选值：basic256sha256，basic256，basic128rsa15都可
 
 同时配置上 用户名/密码 即可访问服务器
+
+## 连接池
+
+此封装自带了连接池配置，默认会生成3个连接，可配置
+
+~~~yaml
+kangaroohy:
+  milo:
+    pool:
+      max-idle: 5
+      max-total: 20
+      min-idle: 2
+      initial-size: 3
+~~~
 
 ## 写
 注入MiloService即可使用，支持：批量读、单个写（批量写，循环即可）、批量订阅（订阅不好使，推荐kepware使用MQTT实现订阅功能）

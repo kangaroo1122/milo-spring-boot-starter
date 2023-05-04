@@ -1,22 +1,14 @@
-package com.coctrl.milo.service;
+package com.kangaroohy.milo.service;
 
-import com.coctrl.milo.configuration.MiloProperties;
-import com.coctrl.milo.exception.EndPointNotFoundException;
-import com.coctrl.milo.exception.IdentityNotFoundException;
-import com.coctrl.milo.model.ReadWriteEntity;
-import com.coctrl.milo.model.SubscriptValues;
-import com.coctrl.milo.model.WriteEntity;
-import com.coctrl.milo.runner.*;
-import com.coctrl.milo.runner.subscription.ManagedSubscriptionRunner;
-import com.coctrl.milo.runner.subscription.SubscriptionRunner;
-import com.coctrl.milo.utils.KeyStoreLoader;
+import com.kangaroohy.milo.model.ReadWriteEntity;
+import com.kangaroohy.milo.model.SubscriptValues;
+import com.kangaroohy.milo.model.WriteEntity;
+import com.kangaroohy.milo.pool.MiloConnectPool;
+import com.kangaroohy.milo.runner.*;
+import com.kangaroohy.milo.runner.subscription.ManagedSubscriptionRunner;
+import com.kangaroohy.milo.runner.subscription.SubscriptionRunner;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
-import org.eclipse.milo.opcua.sdk.client.api.identity.AnonymousProvider;
-import org.eclipse.milo.opcua.sdk.client.api.identity.IdentityProvider;
-import org.eclipse.milo.opcua.sdk.client.api.identity.UsernameProvider;
-import org.eclipse.milo.opcua.stack.core.security.SecurityPolicy;
-import org.eclipse.milo.opcua.stack.core.types.builtin.LocalizedText;
 import org.eclipse.milo.opcua.stack.core.types.builtin.Variant;
 import org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned;
 import org.springframework.stereotype.Service;
@@ -24,8 +16,6 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * @author kangaroo hy
@@ -36,15 +26,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 @Service
 @Slf4j
 public class MiloService {
-    private final MiloProperties properties;
+    private final MiloConnectPool connectPool;
 
-    private Queue<OpcUaClient> queue = new ConcurrentLinkedQueue<>();
-
-    public MiloService(MiloProperties properties) {
-        if (properties.getEndpoint() == null || "".equals(properties.getEndpoint())) {
-            throw new EndPointNotFoundException("请配置OPC UA地址信息");
-        }
-        this.properties = properties;
+    public MiloService(MiloConnectPool connectPool) {
+        this.connectPool = connectPool;
     }
 
     /**
@@ -52,14 +37,14 @@ public class MiloService {
      *
      * @return 根节点列表
      */
-    public List<String> browseRoot() {
+    public List<String> browseRoot() throws Exception {
         BrowseRunner runner = new BrowseRunner();
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 return runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
         return new ArrayList<>();
@@ -71,14 +56,14 @@ public class MiloService {
      * @param browseRoot 节点名称
      * @return 指定节点 tag列表
      */
-    public List<String> browseNode(String browseRoot) {
+    public List<String> browseNode(String browseRoot) throws Exception {
         BrowseNodeRunner runner = new BrowseNodeRunner(browseRoot);
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 return runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
         return new ArrayList<>();
@@ -89,14 +74,14 @@ public class MiloService {
      *
      * @param entity 待写入数据
      */
-    public void writeSpecifyType(WriteEntity entity) {
+    public void writeSpecifyType(WriteEntity entity) throws Exception {
         WriteValueRunner runner = new WriteValueRunner(entity);
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
     }
@@ -106,14 +91,14 @@ public class MiloService {
      *
      * @param entities 待写入数据
      */
-    public void writeSpecifyType(List<WriteEntity> entities) {
+    public void writeSpecifyType(List<WriteEntity> entities) throws Exception {
         WriteValuesRunner runner = new WriteValuesRunner(entities);
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
     }
@@ -123,17 +108,17 @@ public class MiloService {
      *
      * @param entity 待写入数据
      */
-    public boolean writeToOpcUa(ReadWriteEntity entity) {
+    public boolean writeToOpcUa(ReadWriteEntity entity) throws Exception {
         WriteValueRunner runner = new WriteValueRunner(WriteEntity.builder()
                 .identifier(entity.getIdentifier())
                 .variant(new Variant(entity.getValue()))
                 .build());
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 return runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
         return false;
@@ -144,7 +129,7 @@ public class MiloService {
      *
      * @param entities 待写入数据
      */
-    public void writeToOpcUa(List<ReadWriteEntity> entities) {
+    public void writeToOpcUa(List<ReadWriteEntity> entities) throws Exception {
         List<WriteEntity> writeEntityList = new ArrayList<>();
         if (!entities.isEmpty()) {
             for (ReadWriteEntity entity : entities) {
@@ -155,12 +140,12 @@ public class MiloService {
             }
         }
         WriteValuesRunner runner = new WriteValuesRunner(writeEntityList);
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
     }
@@ -171,17 +156,17 @@ public class MiloService {
      *
      * @param entity 待写入数据
      */
-    public void writeToOpcChar(ReadWriteEntity entity) {
+    public void writeToOpcChar(ReadWriteEntity entity) throws Exception {
         WriteValueRunner runner = new WriteValueRunner(WriteEntity.builder()
                 .identifier(entity.getIdentifier())
                 .variant(new Variant(((Integer) entity.getValue()).byteValue()))
                 .build());
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
     }
@@ -192,7 +177,7 @@ public class MiloService {
      *
      * @param entities 待写入数据
      */
-    public void writeToOpcChar(List<ReadWriteEntity> entities) {
+    public void writeToOpcChar(List<ReadWriteEntity> entities) throws Exception {
         List<WriteEntity> writeEntityList = new ArrayList<>();
         if (!entities.isEmpty()) {
             for (ReadWriteEntity entity : entities) {
@@ -203,12 +188,12 @@ public class MiloService {
             }
         }
         WriteValuesRunner runner = new WriteValuesRunner(writeEntityList);
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
     }
@@ -219,17 +204,17 @@ public class MiloService {
      *
      * @param entity 待写入数据
      */
-    public void writeToOpcByte(ReadWriteEntity entity) {
+    public void writeToOpcByte(ReadWriteEntity entity) throws Exception {
         WriteValueRunner runner = new WriteValueRunner(WriteEntity.builder()
                 .identifier(entity.getIdentifier())
                 .variant(new Variant(Unsigned.ubyte((Integer) entity.getValue())))
                 .build());
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
     }
@@ -240,7 +225,7 @@ public class MiloService {
      *
      * @param entities 待写入数据
      */
-    public void writeToOpcByte(List<ReadWriteEntity> entities) {
+    public void writeToOpcByte(List<ReadWriteEntity> entities) throws Exception {
         List<WriteEntity> writeEntityList = new ArrayList<>();
         if (!entities.isEmpty()) {
             for (ReadWriteEntity entity : entities) {
@@ -251,12 +236,12 @@ public class MiloService {
             }
         }
         WriteValuesRunner runner = new WriteValuesRunner(writeEntityList);
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
     }
@@ -267,17 +252,17 @@ public class MiloService {
      *
      * @param entity 待写入数据
      */
-    public void writeToOpcShort(ReadWriteEntity entity) {
+    public void writeToOpcShort(ReadWriteEntity entity) throws Exception {
         WriteValueRunner runner = new WriteValueRunner(WriteEntity.builder()
                 .identifier(entity.getIdentifier())
                 .variant(new Variant(((Integer) entity.getValue()).shortValue()))
                 .build());
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
     }
@@ -288,7 +273,7 @@ public class MiloService {
      *
      * @param entities 待写入数据
      */
-    public void writeToOpcShort(List<ReadWriteEntity> entities) {
+    public void writeToOpcShort(List<ReadWriteEntity> entities) throws Exception {
         List<WriteEntity> writeEntityList = new ArrayList<>();
         if (!entities.isEmpty()) {
             for (ReadWriteEntity entity : entities) {
@@ -299,12 +284,12 @@ public class MiloService {
             }
         }
         WriteValuesRunner runner = new WriteValuesRunner(writeEntityList);
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
     }
@@ -315,17 +300,17 @@ public class MiloService {
      *
      * @param entity 待写入数据
      */
-    public void writeToOpcWord(ReadWriteEntity entity) {
+    public void writeToOpcWord(ReadWriteEntity entity) throws Exception {
         WriteValueRunner runner = new WriteValueRunner(WriteEntity.builder()
                 .identifier(entity.getIdentifier())
                 .variant(new Variant(Unsigned.ushort((Integer) entity.getValue())))
                 .build());
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
     }
@@ -336,7 +321,7 @@ public class MiloService {
      *
      * @param entities 待写入数据
      */
-    public void writeToOpcWord(List<ReadWriteEntity> entities) {
+    public void writeToOpcWord(List<ReadWriteEntity> entities) throws Exception {
         List<WriteEntity> writeEntityList = new ArrayList<>();
         if (!entities.isEmpty()) {
             for (ReadWriteEntity entity : entities) {
@@ -347,12 +332,12 @@ public class MiloService {
             }
         }
         WriteValuesRunner runner = new WriteValuesRunner(writeEntityList);
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
     }
@@ -363,7 +348,7 @@ public class MiloService {
      * @param id 点位id
      * @return
      */
-    public ReadWriteEntity readFromOpcUa(String id) {
+    public ReadWriteEntity readFromOpcUa(String id) throws Exception {
         List<String> ids = new ArrayList<>();
         ids.add(id);
         List<ReadWriteEntity> entityList = readFromOpcUa(ids);
@@ -379,14 +364,14 @@ public class MiloService {
      * @param ids 点位id数组
      * @return
      */
-    public List<ReadWriteEntity> readFromOpcUa(List<String> ids) {
+    public List<ReadWriteEntity> readFromOpcUa(List<String> ids) throws Exception {
         ReadValuesRunner runner = new ReadValuesRunner(ids);
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 return runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
         return new ArrayList<>();
@@ -398,14 +383,14 @@ public class MiloService {
      * @param ids 点位id数组
      * @return
      */
-    public void subscriptionFromOpcUa(List<String> ids) {
+    public void subscriptionFromOpcUa(List<String> ids) throws Exception {
         SubscriptionRunner runner = new SubscriptionRunner(ids);
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
     }
@@ -416,14 +401,14 @@ public class MiloService {
      * @param ids 点位id数组
      * @return
      */
-    public void managedSubscriptionFromOpcUa(List<String> ids) {
+    public void managedSubscriptionFromOpcUa(List<String> ids) throws Exception {
         ManagedSubscriptionRunner runner = new ManagedSubscriptionRunner(ids);
-        OpcUaClient client = connect();
+        OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
                 runner.run(client);
             } finally {
-                disconnect(client);
+                connectPool.returnObject(client);
             }
         }
     }
@@ -439,63 +424,4 @@ public class MiloService {
         return null;
     }
 
-    private OpcUaClient connect() {
-        OpcUaClient client = queue.poll();
-        if (client != null) {
-            return client;
-        }
-        try {
-            client = createClient();
-            client.connect().get();
-            queue.add(client);
-            return client;
-        } catch (Exception e) {
-            log.error("OpcUaClient create error: ", e);
-        }
-        return null;
-    }
-
-    void disconnect(OpcUaClient client) {
-        queue.add(client);
-    }
-
-    private OpcUaClient createClient() throws Exception {
-        KeyStoreLoader loader = new KeyStoreLoader().load();
-
-        return OpcUaClient.create(
-                this.endpointUrl(),
-                endpoints ->
-                        endpoints.stream()
-//                                .filter(e -> securityPolicy().getUri().equals(e.getSecurityPolicyUri()))
-                                .findFirst(),
-                configBuilder ->
-                        configBuilder
-                                .setApplicationName(LocalizedText.english("milo opc-ua client"))
-                                .setApplicationUri("urn:coctrl:milo:client")
-                                .setCertificate(loader.getClientCertificate())
-                                .setKeyPair(loader.getClientKeyPair())
-                                .setIdentityProvider(this.identityProvider())
-                                .setRequestTimeout(Unsigned.uint(5000))
-                                .build()
-        );
-    }
-
-    private String endpointUrl() {
-        return properties.getEndpoint();
-    }
-
-    private SecurityPolicy securityPolicy() {
-        return properties.getSecurityPolicy();
-    }
-
-    private IdentityProvider identityProvider() {
-        if (properties.getSecurityPolicy().equals(SecurityPolicy.None)) {
-            return new AnonymousProvider();
-        }
-        if (properties.getUsername() == null || properties.getPassword() == null) {
-            throw new IdentityNotFoundException("连接信息未完善");
-        } else {
-            return new UsernameProvider(properties.getUsername(), properties.getPassword());
-        }
-    }
 }

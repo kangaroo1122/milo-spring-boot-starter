@@ -1,4 +1,4 @@
-package com.coctrl.milo.exception;
+package com.kangaroohy.milo.exception;
 
 /**
  * 类 EndPointNotFoundException 功能描述：

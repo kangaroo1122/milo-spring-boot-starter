@@ -1,4 +1,4 @@
-package com.coctrl.milo.utils;
+package com.kangaroohy.milo.utils;
 
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.stack.core.util.SelfSignedCertificateBuilder;

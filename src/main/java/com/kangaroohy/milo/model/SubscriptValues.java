@@ -1,4 +1,4 @@
-package com.coctrl.milo.model;
+package com.kangaroohy.milo.model;
 
 import java.util.HashMap;
 import java.util.Map;

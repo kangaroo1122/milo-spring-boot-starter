@@ -1,6 +1,6 @@
-package com.coctrl.milo.runner;
+package com.kangaroohy.milo.runner;
 
-import com.coctrl.milo.model.ReadWriteEntity;
+import com.kangaroohy.milo.model.ReadWriteEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.stack.core.types.builtin.DataValue;

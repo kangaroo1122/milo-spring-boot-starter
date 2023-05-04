@@ -1,4 +1,4 @@
-package com.coctrl.milo.runner.subscription;
+package com.kangaroohy.milo.runner.subscription;
 
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;

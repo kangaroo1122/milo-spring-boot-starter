@@ -4,9 +4,9 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <name>milo-spring-boot-starter</name>
-    <groupId>com.coctrl</groupId>
+    <groupId>com.kangaroohy</groupId>
     <artifactId>milo-spring-boot-starter</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.0</version>
 
     <properties>
         <java.version>1.8</java.version>
@@ -14,6 +14,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <spring-boot.version>2.1.18.RELEASE</spring-boot.version>
         <milo.version>0.6.9</milo.version>
+        <commons-pool2.version>2.11.1</commons-pool2.version>
         <lombok.version>1.18.24</lombok.version>
     </properties>
 
@@ -34,6 +35,11 @@
             <groupId>org.eclipse.milo</groupId>
             <artifactId>sdk-client</artifactId>
             <version>${milo.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
+            <version>${commons-pool2.version}</version>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
