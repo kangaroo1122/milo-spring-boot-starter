@@ -56,7 +56,7 @@ kangaroohy:
 
 Opc后边的字段对应Kepware中的tag数据类型（Ua除外，为通用类型）
 
-![img_3.png](img_3.png)
+![img_3.png](screenshot/img_3.png)
 
 ### 通用类型
 
@@ -191,7 +191,7 @@ public class MiloTest {
 
 ## 读
 
-![img_2.png](img_2.png)
+![img_2.png](screenshot/img_2.png)
 
 读比较简单，传相应的TAG id数组即可，调用方法：readFromOpcUa(List<String> ids)
 
@@ -201,6 +201,6 @@ id格式：通道名.设备名.TAG
 
 ## 遍历节点
 
-![img_1.png](img_1.png)
+![img_1.png](screenshot/img_1.png)
 
 可遍历指定节点相关信息
