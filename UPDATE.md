@@ -1,4 +1,4 @@
-## 1.0.0
+## 3.0.0
 
 - 适配 spring boot 3.x，也可在spring boot 2.x中使用
 - 基于 eclipse milo 最新版本 0.6.9
