@@ -8,6 +8,14 @@ milo 封装工具包，yml配置OPC UA地址，是否匿名等信息，即可连
 
 首次版本发布，适配 spring boot 3.x，也可在spring boot 2.x中使用
 
+~~~
+<dependency>
+    <groupId>com.kangaroohy</groupId>
+    <artifactId>milo-spring-boot-starter</artifactId>
+    <version>${lastVersion}</version>
+</dependency>
+~~~
+
 ## 配置
 ```yaml
 kangaroohy:
