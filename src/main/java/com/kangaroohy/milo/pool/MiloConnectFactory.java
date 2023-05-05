@@ -43,9 +43,17 @@ public class MiloConnectFactory implements PooledObjectFactory<OpcUaClient> {
      */
     @Override
     public PooledObject<OpcUaClient> makeObject() throws Exception {
-        OpcUaClient client = createClient();
-        client.connect().get();
-        return new DefaultPooledObject<>(client);
+        OpcUaClient client = null;
+        try {
+            client = createClient();
+            client.connect().get();
+            return new DefaultPooledObject<>(client);
+        } catch (Exception e) {
+            if (client != null) {
+                client.disconnect().get();
+            }
+            throw new InterruptedException(e.getMessage());
+        }
     }
 
     /**

@@ -24,7 +24,7 @@ import java.time.Duration;
  */
 @Configuration
 @EnableConfigurationProperties(MiloProperties.class)
-@ConditionalOnClass(MiloService.class)
+@ConditionalOnClass({MiloService.class, MiloConnectPool.class})
 @ConditionalOnProperty(prefix = MiloProperties.PREFIX, value = "enabled", matchIfMissing = true)
 public class MiloAutoConfiguration {
     private final MiloProperties properties;
@@ -50,7 +50,7 @@ public class MiloAutoConfiguration {
         //最大总数 10
         poolConfig.setMaxTotal(pool.getMaxTotal());
         // 多久执行一次对象扫描，将无用的对象销毁，默认-1不扫描
-        poolConfig.setTimeBetweenEvictionRuns(Duration.ofMillis(30 * 1000 * 60));
+        poolConfig.setTimeBetweenEvictionRuns(Duration.ofMinutes(1));
         // 在获取对象的时候检查有效性, 默认false
         poolConfig.setTestOnBorrow(true);
         // 在归还对象的时候检查有效性, 默认false
