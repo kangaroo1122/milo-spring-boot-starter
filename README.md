@@ -2,6 +2,12 @@
 
 milo 封装工具包，yml配置OPC UA地址，是否匿名等信息，即可连接OPC UA服务器
 
+## maven
+
+[![Maven Central](https://img.shields.io/maven-central/v/com.kangaroohy/milo-spring-boot-starter.svg)](https://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22com.kangaroohy%22%20AND%20a%3A%milo-spring-boot-starter%22)
+
+首次版本发布，适配 spring boot 3.x，也可在spring boot 2.x中使用
+
 ## 配置
 ```yaml
 kangaroohy:
