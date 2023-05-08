@@ -3,6 +3,7 @@ package com.kangaroohy.milo.configuration;
 import com.kangaroohy.milo.pool.MiloConnectFactory;
 import com.kangaroohy.milo.pool.MiloConnectPool;
 import com.kangaroohy.milo.service.MiloService;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -26,6 +27,7 @@ import java.time.Duration;
 @EnableConfigurationProperties(MiloProperties.class)
 @ConditionalOnClass({MiloService.class, MiloConnectPool.class})
 @ConditionalOnProperty(prefix = MiloProperties.PREFIX, value = "enabled", matchIfMissing = true)
+@Slf4j
 public class MiloAutoConfiguration {
     private final MiloProperties properties;
 
@@ -107,6 +109,7 @@ public class MiloAutoConfiguration {
     public void destroy() {
         if (connectPool != null) {
             connectPool.close();
+            log.info("all opcUaClients are closed");
         }
     }
 }

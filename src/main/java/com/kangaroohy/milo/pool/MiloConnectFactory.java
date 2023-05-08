@@ -64,7 +64,9 @@ public class MiloConnectFactory implements PooledObjectFactory<OpcUaClient> {
      */
     @Override
     public void destroyObject(PooledObject<OpcUaClient> pooledObject) throws Exception {
-        pooledObject.getObject().disconnect().get();
+        OpcUaClient opcUaClient = pooledObject.getObject();
+        log.info("disconnect opcUaClient {}", opcUaClient.getConfig().getApplicationName().getText());
+        opcUaClient.disconnect().get();
     }
 
     /**
@@ -105,7 +107,7 @@ public class MiloConnectFactory implements PooledObjectFactory<OpcUaClient> {
                 configBuilder ->
                         configBuilder
                                 .setApplicationName(LocalizedText.english("milo opc-ua client"))
-                                .setApplicationUri("urn:coctrl:milo:client")
+                                .setApplicationUri("urn:kangaroohy:milo:client")
                                 .setCertificate(loader.getClientCertificate())
                                 .setKeyPair(loader.getClientKeyPair())
                                 .setIdentityProvider(this.identityProvider())
