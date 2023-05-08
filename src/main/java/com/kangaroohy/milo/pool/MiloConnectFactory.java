@@ -12,6 +12,7 @@ import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.sdk.client.api.identity.AnonymousProvider;
 import org.eclipse.milo.opcua.sdk.client.api.identity.IdentityProvider;
 import org.eclipse.milo.opcua.sdk.client.api.identity.UsernameProvider;
+import org.eclipse.milo.opcua.stack.core.Stack;
 import org.eclipse.milo.opcua.stack.core.security.SecurityPolicy;
 import org.eclipse.milo.opcua.stack.core.types.builtin.LocalizedText;
 import org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned;
@@ -51,6 +52,7 @@ public class MiloConnectFactory implements PooledObjectFactory<OpcUaClient> {
         } catch (Exception e) {
             if (client != null) {
                 client.disconnect().get();
+                Stack.releaseSharedResources();
             }
             throw new InterruptedException(e.getMessage());
         }
@@ -108,8 +110,10 @@ public class MiloConnectFactory implements PooledObjectFactory<OpcUaClient> {
                         configBuilder
                                 .setApplicationName(LocalizedText.english("milo opc-ua client"))
                                 .setApplicationUri("urn:kangaroohy:milo:client")
-                                .setCertificate(loader.getClientCertificate())
                                 .setKeyPair(loader.getClientKeyPair())
+                                .setCertificate(loader.getClientCertificate())
+                                .setCertificateChain(loader.getClientCertificateChain())
+                                .setCertificateValidator(loader.getCertificateValidator())
                                 .setIdentityProvider(this.identityProvider())
                                 .setRequestTimeout(Unsigned.uint(5000))
                                 .build()

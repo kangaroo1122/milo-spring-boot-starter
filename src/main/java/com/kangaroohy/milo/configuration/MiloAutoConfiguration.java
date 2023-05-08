@@ -6,6 +6,7 @@ import com.kangaroohy.milo.service.MiloService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
+import org.eclipse.milo.opcua.stack.core.Stack;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -109,6 +110,7 @@ public class MiloAutoConfiguration {
     public void destroy() {
         if (connectPool != null) {
             connectPool.close();
+            Stack.releaseSharedResources();
             log.info("all opcUaClients are closed");
         }
     }
