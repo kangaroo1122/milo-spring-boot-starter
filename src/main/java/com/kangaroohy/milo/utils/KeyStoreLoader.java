@@ -1,9 +1,12 @@
 package com.kangaroohy.milo.utils;
 
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.milo.opcua.stack.client.security.DefaultClientCertificateValidator;
+import org.eclipse.milo.opcua.stack.core.security.DefaultTrustListManager;
 import org.eclipse.milo.opcua.stack.core.util.SelfSignedCertificateBuilder;
 import org.eclipse.milo.opcua.stack.core.util.SelfSignedCertificateGenerator;
 
+import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -11,6 +14,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.*;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
 import java.util.regex.Pattern;
 
 @Slf4j
@@ -23,7 +27,9 @@ public class KeyStoreLoader {
     private static final char[] PASSWORD = "password".toCharArray();
 
     private X509Certificate clientCertificate;
+    private X509Certificate[] clientCertificateChain;
     private KeyPair clientKeyPair;
+    private DefaultClientCertificateValidator certificateValidator;
 
     public KeyStoreLoader load() throws Exception {
         Path securityTempDir = Paths.get(System.getProperty("java.io.tmpdir"), "security");
@@ -31,11 +37,18 @@ public class KeyStoreLoader {
         if (!Files.exists(securityTempDir)) {
             throw new Exception("unable to create security dir: " + securityTempDir);
         }
+
+        File pkiDir = securityTempDir.resolve("pki").toFile();
+
         log.info("security temp dir: {}", securityTempDir.toAbsolutePath());
 
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
 
         Path serverKeyStore = securityTempDir.resolve("milo-client.pfx");
+
+        DefaultTrustListManager trustListManager = new DefaultTrustListManager(pkiDir);
+
+        certificateValidator = new DefaultClientCertificateValidator(trustListManager);
 
         log.info("Loading KeyStore at {}", serverKeyStore);
 
@@ -46,12 +59,12 @@ public class KeyStoreLoader {
 
             SelfSignedCertificateBuilder builder = new SelfSignedCertificateBuilder(keyPair)
                     .setCommonName("Milo Client")
-                    .setOrganization("coctrl")
+                    .setOrganization("kangaroohy")
                     .setOrganizationalUnit("dev")
                     .setLocalityName("Folsom")
                     .setStateName("CA")
                     .setCountryCode("US")
-                    .setApplicationUri("urn:coctrl:milo:client")
+                    .setApplicationUri("urn:kangaroohy:milo:client")
                     .addDnsName("localhost")
                     .addIpAddress("127.0.0.1");
 
@@ -79,6 +92,11 @@ public class KeyStoreLoader {
         Key clientPrivateKey = keyStore.getKey(CLIENT_ALIAS, PASSWORD);
         if (clientPrivateKey instanceof PrivateKey) {
             clientCertificate = (X509Certificate) keyStore.getCertificate(CLIENT_ALIAS);
+
+            clientCertificateChain = Arrays.stream(keyStore.getCertificateChain(CLIENT_ALIAS))
+                    .map(X509Certificate.class::cast)
+                    .toArray(X509Certificate[]::new);
+
             PublicKey clientPublicKey = clientCertificate.getPublicKey();
             clientKeyPair = new KeyPair(clientPublicKey, (PrivateKey) clientPrivateKey);
         }
@@ -88,6 +106,14 @@ public class KeyStoreLoader {
 
     public X509Certificate getClientCertificate() {
         return clientCertificate;
+    }
+
+    public X509Certificate[] getClientCertificateChain() {
+        return clientCertificateChain;
+    }
+
+    public DefaultClientCertificateValidator getCertificateValidator() {
+        return certificateValidator;
     }
 
     public KeyPair getClientKeyPair() {
