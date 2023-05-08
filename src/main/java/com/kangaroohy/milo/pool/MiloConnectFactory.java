@@ -12,7 +12,6 @@ import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.sdk.client.api.identity.AnonymousProvider;
 import org.eclipse.milo.opcua.sdk.client.api.identity.IdentityProvider;
 import org.eclipse.milo.opcua.sdk.client.api.identity.UsernameProvider;
-import org.eclipse.milo.opcua.stack.core.Stack;
 import org.eclipse.milo.opcua.stack.core.security.SecurityPolicy;
 import org.eclipse.milo.opcua.stack.core.types.builtin.LocalizedText;
 import org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned;
@@ -52,7 +51,6 @@ public class MiloConnectFactory implements PooledObjectFactory<OpcUaClient> {
         } catch (Exception e) {
             if (client != null) {
                 client.disconnect().get();
-                Stack.releaseSharedResources();
             }
             throw new InterruptedException(e.getMessage());
         }
