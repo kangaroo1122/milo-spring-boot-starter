@@ -146,7 +146,7 @@ public class MiloConnectFactory implements PooledObjectFactory<OpcUaClient> {
     }
 
     private IdentityProvider identityProvider() {
-        if (properties.getSecurityPolicy().equals(SecurityPolicy.None)) {
+        if (securityPolicy().equals(SecurityPolicy.None)) {
             return new AnonymousProvider();
         }
         if (properties.getUsername() == null || properties.getPassword() == null) {
