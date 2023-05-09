@@ -213,3 +213,33 @@ id格式：通道名.设备名.TAG
 ![img_1.png](screenshot/img_1.png)
 
 可遍历指定节点相关信息
+
+## 订阅
+
+这里使用的是实现`ApplicationRunner`接口，实现在项目启动时，自动订阅相关点位
+
+当点位数值发生改变，则会触发回调，根据回调即可实现相应的逻辑
+
+> 每新增一个订阅都会长期占用一个opc ua连接，不会释放
+
+~~~java
+@Component
+@Slf4j
+public class CustomRunner implements ApplicationRunner {
+
+    @Autowired
+    private MiloService miloService;
+
+    @Override
+    public void run(ApplicationArguments args) throws Exception {
+        sub();
+    }
+
+    private void sub() throws Exception {
+        List<String> ids = new ArrayList<>();
+        ids.add("GA.T1.T1001R");
+        ids.add("GA.T1.String");
+        miloService.subscriptionFromOpcUa(ids, (id, value) -> log.info("subscription 点位：{} 订阅到消息：{}", id, value));
+    }
+}
+~~~

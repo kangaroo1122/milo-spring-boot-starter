@@ -4,6 +4,8 @@ import com.kangaroohy.milo.model.ReadWriteEntity;
 import com.kangaroohy.milo.model.WriteEntity;
 import com.kangaroohy.milo.pool.MiloConnectPool;
 import com.kangaroohy.milo.runner.*;
+import com.kangaroohy.milo.runner.subscription.SubscriptionCallback;
+import com.kangaroohy.milo.runner.subscription.SubscriptionRunner;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.stack.core.types.builtin.Variant;
@@ -371,6 +373,24 @@ public class MiloService {
             }
         }
         return new ArrayList<>();
+    }
+
+    /**
+     * 订阅kep点位值
+     *
+     * @param ids 点位id数组
+     * @return
+     */
+    public void subscriptionFromOpcUa(List<String> ids, SubscriptionCallback callback) throws Exception {
+        SubscriptionRunner runner = new SubscriptionRunner(ids);
+        OpcUaClient client = connectPool.borrowObject();
+        if (client != null) {
+            try {
+                runner.run(client, callback);
+            } finally {
+                connectPool.returnObject(client);
+            }
+        }
     }
 
 }
