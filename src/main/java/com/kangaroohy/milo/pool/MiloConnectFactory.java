@@ -15,6 +15,12 @@ import org.eclipse.milo.opcua.sdk.client.api.identity.UsernameProvider;
 import org.eclipse.milo.opcua.stack.core.security.SecurityPolicy;
 import org.eclipse.milo.opcua.stack.core.types.builtin.LocalizedText;
 import org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned;
+import org.eclipse.milo.opcua.stack.core.types.structured.EndpointDescription;
+import org.eclipse.milo.opcua.stack.core.util.EndpointUtil;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Optional;
 
 /**
  * 类 MiloConnectFactory 功能描述：<br/>
@@ -100,10 +106,15 @@ public class MiloConnectFactory implements PooledObjectFactory<OpcUaClient> {
 
         return OpcUaClient.create(
                 this.endpointUrl(),
-                endpoints ->
-                        endpoints.stream()
+                (endpoints) -> {
+                    EndpointDescription description = endpoints.stream()
 //                                .filter(e -> securityPolicy().getUri().equals(e.getSecurityPolicyUri()))
-                                .findFirst(),
+                            .findFirst().orElseThrow(() -> new EndPointNotFoundException("no desired endpoints returned"));
+                    if (!description.getEndpointUrl().equals(endpointUrl())) {
+                        description = EndpointUtil.updateUrl(description, getUri().getHost(), getUri().getPort());
+                    }
+                    return Optional.of(description);
+                },
                 configBuilder ->
                         configBuilder
                                 .setApplicationName(LocalizedText.english("milo opc-ua client"))
@@ -116,6 +127,14 @@ public class MiloConnectFactory implements PooledObjectFactory<OpcUaClient> {
                                 .setRequestTimeout(Unsigned.uint(5000))
                                 .build()
         );
+    }
+
+    private URI getUri() {
+        try {
+            return new URI(endpointUrl());
+        } catch (URISyntaxException e) {
+            throw new EndPointNotFoundException("endpoint 配置异常");
+        }
     }
 
     private String endpointUrl() {
