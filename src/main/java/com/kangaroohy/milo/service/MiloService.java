@@ -382,7 +382,18 @@ public class MiloService {
      * @return
      */
     public void subscriptionFromOpcUa(List<String> ids, SubscriptionCallback callback) throws Exception {
-        SubscriptionRunner runner = new SubscriptionRunner(ids);
+        subscriptionFromOpcUa(ids, 1000.0, callback);
+    }
+
+    /**
+     * 订阅kep点位值
+     *
+     * @param ids 点位id数组
+     * @param samplingInterval 订阅时间间隔 默认1000 ms
+     * @return
+     */
+    public void subscriptionFromOpcUa(List<String> ids, double samplingInterval, SubscriptionCallback callback) throws Exception {
+        SubscriptionRunner runner = new SubscriptionRunner(ids, samplingInterval);
         OpcUaClient client = connectPool.borrowObject();
         if (client != null) {
             try {
