@@ -1,6 +1,7 @@
 package com.kangaroohy.milo.runner;
 
 import com.kangaroohy.milo.model.WriteEntity;
+import com.kangaroohy.milo.utils.CustomUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.stack.core.types.builtin.DataValue;
@@ -24,7 +25,7 @@ public class WriteValueRunner {
 
     public boolean run(OpcUaClient opcUaClient) {
         try {
-            NodeId nodeId = new NodeId(2, entity.getIdentifier());
+            NodeId nodeId = CustomUtil.parseNodeId(entity.getIdentifier());
 
             Variant variant = entity.getVariant();
 
