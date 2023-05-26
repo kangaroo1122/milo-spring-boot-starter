@@ -1,5 +1,6 @@
 package com.kangaroohy.milo.runner.subscription;
 
+import com.kangaroohy.milo.utils.CustomUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.sdk.client.api.subscriptions.UaSubscription;
@@ -67,7 +68,7 @@ public class SubscriptionRunner {
 
             List<NodeId> nodeIdList = new ArrayList<>();
             for (String identifier : identifiers) {
-                nodeIdList.add(new NodeId(2, identifier));
+                nodeIdList.add(CustomUtil.parseNodeId(identifier));
             }
             List<ManagedDataItem> dataItemList = subscription.createDataItems(nodeIdList);
             for (ManagedDataItem dataItem : dataItemList) {

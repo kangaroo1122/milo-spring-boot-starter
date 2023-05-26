@@ -1,6 +1,7 @@
 package com.kangaroohy.milo.runner;
 
 import com.kangaroohy.milo.model.ReadWriteEntity;
+import com.kangaroohy.milo.utils.CustomUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.stack.core.types.builtin.DataValue;
@@ -32,7 +33,7 @@ public class ReadValuesRunner {
         List<ReadWriteEntity> entityList = new ArrayList<>();
         try {
             for (String id : identifiers) {
-                NodeId nodeId = new NodeId(2, id);
+                NodeId nodeId = CustomUtil.parseNodeId(id);
 
                 // 读取指定点位的值，10s超时
                 DataValue dataValue = opcUaClient.readValue(10000, TimestampsToReturn.Both, nodeId).get();

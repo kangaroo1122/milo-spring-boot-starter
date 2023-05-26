@@ -1,5 +1,6 @@
 package com.kangaroohy.milo.runner;
 
+import com.kangaroohy.milo.utils.CustomUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.sdk.client.nodes.UaNode;
@@ -28,7 +29,7 @@ public class BrowseNodeRunner {
     }
 
     public List<String> run(OpcUaClient opcUaClient) {
-        NodeId nodeId = new NodeId(2, browseRoot);
+        NodeId nodeId = CustomUtil.parseNodeId(browseRoot);
         return browseNode(browseRoot, opcUaClient, nodeId);
     }
 

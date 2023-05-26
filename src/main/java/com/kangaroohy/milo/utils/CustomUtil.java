@@ -1,7 +1,9 @@
 package com.kangaroohy.milo.utils;
 
 import com.google.common.collect.Sets;
+import com.kangaroohy.milo.exception.IdentityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.milo.opcua.stack.core.types.builtin.NodeId;
 
 import java.net.*;
 import java.util.*;
@@ -13,8 +15,8 @@ import java.util.*;
  * @since 2020/4/13
  */
 @Slf4j
-public class HostnameUtil {
-    private HostnameUtil() {
+public class CustomUtil {
+    private CustomUtil() {
     }
 
     public static String getHostname() {
@@ -67,5 +69,16 @@ public class HostnameUtil {
         }
 
         return hostnames;
+    }
+
+    public static NodeId parseNodeId(String identifier) {
+        NodeId nodeId = new NodeId(2, identifier);
+        if (identifier.startsWith("ns=") && identifier.contains(";")) {
+            nodeId = NodeId.parseOrNull(identifier);
+        }
+        if (nodeId == null) {
+            throw new IdentityNotFoundException("NodeId 解析失败，请检查");
+        }
+        return nodeId;
     }
 }
