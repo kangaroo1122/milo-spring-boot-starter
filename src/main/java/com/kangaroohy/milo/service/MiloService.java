@@ -13,6 +13,7 @@ import org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -45,7 +46,7 @@ public class MiloService {
                 connectPool.returnObject(client);
             }
         }
-        return new ArrayList<>();
+        return Collections.emptyList();
     }
 
     /**
@@ -64,7 +65,7 @@ public class MiloService {
                 connectPool.returnObject(client);
             }
         }
-        return new ArrayList<>();
+        return Collections.emptyList();
     }
 
     /**
@@ -347,9 +348,7 @@ public class MiloService {
      * @return
      */
     public ReadWriteEntity readFromOpcUa(String id) throws Exception {
-        List<String> ids = new ArrayList<>();
-        ids.add(id);
-        List<ReadWriteEntity> entityList = readFromOpcUa(ids);
+        List<ReadWriteEntity> entityList = readFromOpcUa(Collections.singletonList(id));
         if (!entityList.isEmpty()) {
             return entityList.get(0);
         }
