@@ -3,10 +3,11 @@ package com.kangaroohy.milo.pool;
 import com.kangaroohy.milo.configuration.MiloProperties;
 import com.kangaroohy.milo.exception.EndPointNotFoundException;
 import com.kangaroohy.milo.exception.IdentityNotFoundException;
+import com.kangaroohy.milo.utils.CustomUtil;
 import com.kangaroohy.milo.utils.KeyStoreLoader;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.pool2.KeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
-import org.apache.commons.pool2.PooledObjectFactory;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.sdk.client.api.identity.AnonymousProvider;
@@ -30,15 +31,10 @@ import java.util.Optional;
  * @date 2023/5/4 18:56
  */
 @Slf4j
-public class MiloConnectFactory implements PooledObjectFactory<OpcUaClient> {
-
-    private final MiloProperties properties;
+public class MiloConnectFactory implements KeyedPooledObjectFactory<MiloProperties.Config, OpcUaClient> {
 
     public MiloConnectFactory(MiloProperties properties) {
-        if (properties.getEndpoint() == null || "".equals(properties.getEndpoint())) {
-            throw new EndPointNotFoundException("请配置OPC UA地址信息");
-        }
-        this.properties = properties;
+        CustomUtil.verifyProperties(properties);
     }
 
     /**
@@ -48,10 +44,10 @@ public class MiloConnectFactory implements PooledObjectFactory<OpcUaClient> {
      * @throws Exception
      */
     @Override
-    public PooledObject<OpcUaClient> makeObject() throws Exception {
+    public PooledObject<OpcUaClient> makeObject(MiloProperties.Config key) throws Exception {
         OpcUaClient client = null;
         try {
-            client = createClient();
+            client = createClient(key);
             client.connect().get();
             return new DefaultPooledObject<>(client);
         } catch (Exception e) {
@@ -69,7 +65,7 @@ public class MiloConnectFactory implements PooledObjectFactory<OpcUaClient> {
      * @throws Exception
      */
     @Override
-    public void destroyObject(PooledObject<OpcUaClient> pooledObject) throws Exception {
+    public void destroyObject(MiloProperties.Config key, PooledObject<OpcUaClient> pooledObject) throws Exception {
         OpcUaClient opcUaClient = pooledObject.getObject();
         log.info("disconnect opcUaClient {}", opcUaClient.getConfig().getApplicationName().getText());
         opcUaClient.disconnect().get();
@@ -79,7 +75,7 @@ public class MiloConnectFactory implements PooledObjectFactory<OpcUaClient> {
      * 每次获取对象和还回对象时会被调用，如果返回false会销毁对象
      */
     @Override
-    public boolean validateObject(PooledObject<OpcUaClient> pooledObject) {
+    public boolean validateObject(MiloProperties.Config key, PooledObject<OpcUaClient> pooledObject) {
         return true;
     }
 
@@ -88,7 +84,7 @@ public class MiloConnectFactory implements PooledObjectFactory<OpcUaClient> {
      * 此方法一般进行一些前置操作
      */
     @Override
-    public void activateObject(PooledObject<OpcUaClient> pooledObject) throws Exception {
+    public void activateObject(MiloProperties.Config key, PooledObject<OpcUaClient> pooledObject) throws Exception {
 
     }
 
@@ -97,21 +93,21 @@ public class MiloConnectFactory implements PooledObjectFactory<OpcUaClient> {
      * 一般在此方法中对刚刚使用完成的对象进行重置
      */
     @Override
-    public void passivateObject(PooledObject<OpcUaClient> pooledObject) throws Exception {
+    public void passivateObject(MiloProperties.Config key, PooledObject<OpcUaClient> pooledObject) throws Exception {
 
     }
 
-    private OpcUaClient createClient() throws Exception {
+    private OpcUaClient createClient(MiloProperties.Config key) throws Exception {
         KeyStoreLoader loader = new KeyStoreLoader().load();
 
         return OpcUaClient.create(
-                this.endpointUrl(),
-                (endpoints) -> {
+                this.endpointUrl(key),
+                endpoints -> {
                     EndpointDescription description = endpoints.stream()
-//                                .filter(e -> securityPolicy().getUri().equals(e.getSecurityPolicyUri()))
+//                                .filter(e -> securityPolicy(key).getUri().equals(e.getSecurityPolicyUri()))
                             .findFirst().orElseThrow(() -> new EndPointNotFoundException("no desired endpoints returned"));
-                    if (!description.getEndpointUrl().equals(endpointUrl())) {
-                        description = EndpointUtil.updateUrl(description, getUri().getHost(), getUri().getPort());
+                    if (!description.getEndpointUrl().equals(endpointUrl(key))) {
+                        description = EndpointUtil.updateUrl(description, getUri(key).getHost(), getUri(key).getPort());
                     }
                     return Optional.of(description);
                 },
@@ -123,36 +119,36 @@ public class MiloConnectFactory implements PooledObjectFactory<OpcUaClient> {
                                 .setCertificate(loader.getClientCertificate())
                                 .setCertificateChain(loader.getClientCertificateChain())
                                 .setCertificateValidator(loader.getCertificateValidator())
-                                .setIdentityProvider(this.identityProvider())
+                                .setIdentityProvider(this.identityProvider(key))
                                 .setRequestTimeout(Unsigned.uint(5000))
                                 .build()
         );
     }
 
-    private URI getUri() {
+    private URI getUri(MiloProperties.Config key) {
         try {
-            return new URI(endpointUrl());
+            return new URI(endpointUrl(key));
         } catch (URISyntaxException e) {
             throw new EndPointNotFoundException("endpoint 配置异常");
         }
     }
 
-    private String endpointUrl() {
-        return properties.getEndpoint();
+    private String endpointUrl(MiloProperties.Config key) {
+        return key.getEndpoint();
     }
 
-    private SecurityPolicy securityPolicy() {
-        return properties.getSecurityPolicy();
+    private SecurityPolicy securityPolicy(MiloProperties.Config key) {
+        return key.getSecurityPolicy();
     }
 
-    private IdentityProvider identityProvider() {
-        if (securityPolicy().equals(SecurityPolicy.None)) {
+    private IdentityProvider identityProvider(MiloProperties.Config key) {
+        if (securityPolicy(key).equals(SecurityPolicy.None)) {
             return new AnonymousProvider();
         }
-        if (properties.getUsername() == null || properties.getPassword() == null) {
+        if (key.getUsername() == null || key.getPassword() == null) {
             throw new IdentityNotFoundException("连接信息未完善");
         } else {
-            return new UsernameProvider(properties.getUsername(), properties.getPassword());
+            return new UsernameProvider(key.getUsername(), key.getPassword());
         }
     }
 }

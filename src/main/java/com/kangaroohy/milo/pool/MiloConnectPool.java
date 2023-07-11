@@ -1,9 +1,9 @@
 package com.kangaroohy.milo.pool;
 
+import com.kangaroohy.milo.configuration.MiloProperties;
+import org.apache.commons.pool2.KeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObjectFactory;
-import org.apache.commons.pool2.impl.AbandonedConfig;
-import org.apache.commons.pool2.impl.GenericObjectPool;
-import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
+import org.apache.commons.pool2.impl.*;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 
 /**
@@ -13,17 +13,17 @@ import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
  * @version 0.0.1
  * @date 2023/5/4 19:17
  */
-public class MiloConnectPool extends GenericObjectPool<OpcUaClient> {
+public class MiloConnectPool extends GenericKeyedObjectPool<MiloProperties.Config, OpcUaClient> {
 
-    public MiloConnectPool(PooledObjectFactory<OpcUaClient> factory) {
+    public MiloConnectPool(KeyedPooledObjectFactory<MiloProperties.Config, OpcUaClient> factory) {
         super(factory);
     }
 
-    public MiloConnectPool(PooledObjectFactory<OpcUaClient> factory, GenericObjectPoolConfig<OpcUaClient> config) {
+    public MiloConnectPool(KeyedPooledObjectFactory<MiloProperties.Config, OpcUaClient> factory, GenericKeyedObjectPoolConfig<OpcUaClient> config) {
         super(factory, config);
     }
 
-    public MiloConnectPool(PooledObjectFactory<OpcUaClient> factory, GenericObjectPoolConfig<OpcUaClient> config, AbandonedConfig abandonedConfig) {
+    public MiloConnectPool(KeyedPooledObjectFactory<MiloProperties.Config, OpcUaClient> factory, GenericKeyedObjectPoolConfig<OpcUaClient> config, AbandonedConfig abandonedConfig) {
         super(factory, config, abandonedConfig);
     }
 }

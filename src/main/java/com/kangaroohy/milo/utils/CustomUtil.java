@@ -1,9 +1,12 @@
 package com.kangaroohy.milo.utils;
 
 import com.google.common.collect.Sets;
+import com.kangaroohy.milo.configuration.MiloProperties;
+import com.kangaroohy.milo.exception.EndPointNotFoundException;
 import com.kangaroohy.milo.exception.IdentityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.stack.core.types.builtin.NodeId;
+import org.springframework.util.StringUtils;
 
 import java.net.*;
 import java.util.*;
@@ -16,6 +19,9 @@ import java.util.*;
  */
 @Slf4j
 public class CustomUtil {
+
+    private static final String OPC_UA_NOT_CONFIG = "请配置OPC UA地址信息";
+
     private CustomUtil() {
     }
 
@@ -80,5 +86,29 @@ public class CustomUtil {
             throw new IdentityNotFoundException("NodeId 解析失败，请检查");
         }
         return nodeId;
+    }
+
+    public static void verifyProperties(MiloProperties properties) {
+        if (properties.getConfig().isEmpty()) {
+            throw new EndPointNotFoundException(OPC_UA_NOT_CONFIG);
+        }
+        if (!StringUtils.hasText(properties.getPrimary())) {
+            Set<String> keySet = properties.getConfig().keySet();
+            properties.setPrimary(keySet.stream().findFirst().orElseThrow(() -> new EndPointNotFoundException(OPC_UA_NOT_CONFIG)));
+        }
+        properties.getConfig().forEach((key, config) -> {
+            if (!StringUtils.hasText(config.getEndpoint())) {
+                throw new EndPointNotFoundException(OPC_UA_NOT_CONFIG + ": " + key);
+            }
+        });
+    }
+
+    public static MiloProperties.Config getConfig(MiloProperties properties) {
+        return getConfig(properties, null);
+    }
+
+    public static MiloProperties.Config getConfig(MiloProperties properties, String clientName) {
+        Map<String, MiloProperties.Config> config = properties.getConfig();
+        return StringUtils.hasText(clientName) ? config.get(clientName) : config.get(properties.getPrimary());
     }
 }
