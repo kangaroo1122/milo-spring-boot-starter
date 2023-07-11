@@ -4,7 +4,7 @@ import com.kangaroohy.milo.pool.MiloConnectFactory;
 import com.kangaroohy.milo.pool.MiloConnectPool;
 import com.kangaroohy.milo.service.MiloService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
+import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -42,13 +42,13 @@ public class MiloAutoConfiguration {
     protected MiloConnectPool miloConnectPool() {
         MiloConnectFactory objectFactory = new MiloConnectFactory(this.properties);
         //设置对象池的相关参数
-        GenericObjectPoolConfig<OpcUaClient> poolConfig = new GenericObjectPoolConfig<>();
+        GenericKeyedObjectPoolConfig<OpcUaClient> poolConfig = new GenericKeyedObjectPoolConfig<>();
 
         MiloProperties.Pool pool = properties.getPool();
         // 最大空闲数
-        poolConfig.setMaxIdle(pool.getMaxIdle());
+        poolConfig.setMaxIdlePerKey(pool.getMaxIdle());
         //最小空闲,设置为2表示池内至少存放2个空闲对象(当池内有2个空闲对象时调用borrowObject去对象时会立即调用创建对象的方法保证池内有2个空闲对象)
-        poolConfig.setMinIdle(pool.getMinIdle());
+        poolConfig.setMinIdlePerKey(pool.getMinIdle());
         //最大总数 10
         poolConfig.setMaxTotal(pool.getMaxTotal());
         // 多久执行一次对象扫描，将无用的对象销毁，默认-1不扫描
@@ -82,7 +82,7 @@ public class MiloAutoConfiguration {
     @ConditionalOnMissingBean(MiloService.class)
     @DependsOn("miloConnectPool")
     public MiloService miloService(MiloConnectPool miloConnectPool) {
-        return new MiloService(miloConnectPool);
+        return new MiloService(miloConnectPool, properties);
     }
 
     /**
@@ -96,13 +96,16 @@ public class MiloAutoConfiguration {
             return;
         }
 
-        for (int i = 0; i < Math.min(initialSize, maxIdle); i++) {
-            try {
-                connectPool.addObject();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+        properties.getConfig().forEach((key, config) -> {
+            for (int i = 0; i < Math.min(initialSize, maxIdle); i++) {
+                try {
+                    connectPool.addObject(config);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
             }
-        }
+        });
+
     }
 
     @PreDestroy

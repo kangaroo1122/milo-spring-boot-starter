@@ -20,17 +20,23 @@ milo 封装工具包，yml配置OPC UA地址，是否匿名等信息，即可连
 ```yaml
 kangaroohy:
   milo:
-    endpoint: opc.tcp://127.0.0.1:49320
-    security-policy: none
+    primary: default
+    config:
+      default:
+          endpoint: opc.tcp://127.0.0.1:49320
+          security-policy: none
 ```
 
 ```yaml
 kangaroohy:
   milo:
-    endpoint: opc.tcp://127.0.0.1:49320
-    security-policy: basic256sha256
-    username: OPCUA
-    password: 123456
+    primary: default
+    config:
+      default:
+        endpoint: opc.tcp://127.0.0.1:49320
+        security-policy: basic256sha256
+        username: OPCUA
+        password: 123456
 ```
 
 特别提醒：

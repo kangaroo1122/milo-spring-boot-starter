@@ -6,6 +6,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 /**
  * @author kangaroo hy
  * @date 2020/4/25
@@ -20,29 +23,43 @@ public class MiloProperties {
     public static final String PREFIX = "kangaroohy.milo";
 
     /**
-     * OPC UA地址
+     * server 默认请求配置，不指定，则默认取 config中第一个
      */
-    private String endpoint;
+    private String primary;
 
     /**
-     * 安全策略
+     * server 列表
      */
-    private SecurityPolicy securityPolicy = SecurityPolicy.None;
-
-    /**
-     * 用户名
-     */
-    private String username;
-
-    /**
-     * 密码
-     */
-    private String password;
+    private Map<String, Config> config = new LinkedHashMap<>();
 
     /**
      * 连接池配置
      */
     private Pool pool = new Pool();
+
+    @Data
+    public static class Config {
+
+        /**
+         * OPC UA地址
+         */
+        private String endpoint;
+
+        /**
+         * 安全策略
+         */
+        private SecurityPolicy securityPolicy = SecurityPolicy.None;
+
+        /**
+         * 用户名
+         */
+        private String username;
+
+        /**
+         * 密码
+         */
+        private String password;
+    }
 
     @Data
     public static class Pool {
