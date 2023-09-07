@@ -249,3 +249,11 @@ public class CustomRunner implements ApplicationRunner {
     }
 }
 ~~~
+
+## 数据库动态加载连接
+
+注入`MiloConnectPool`，调用对应的新增删除方法即可
+~~~java
+    @Autowired
+    private MiloConnectPool connectPool;
+~~~
