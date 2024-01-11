@@ -3,8 +3,6 @@ package com.kangaroohy.milo.configuration;
 import lombok.Data;
 import org.eclipse.milo.opcua.stack.core.security.SecurityPolicy;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Primary;
-import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -16,11 +14,14 @@ import java.util.Map;
  * @since 0.0.1
  */
 @Data
-@Component
 @ConfigurationProperties(prefix = MiloProperties.PREFIX)
-@Primary
 public class MiloProperties {
     public static final String PREFIX = "kangaroohy.milo";
+
+    /**
+     * 是否启用组件
+     */
+    private Boolean enabled = true;
 
     /**
      * server 默认请求配置，不指定，则默认取 config中第一个
