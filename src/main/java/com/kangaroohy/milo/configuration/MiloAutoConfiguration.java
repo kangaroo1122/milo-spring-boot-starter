@@ -26,7 +26,7 @@ import java.time.Duration;
 @Configuration
 @EnableConfigurationProperties(MiloProperties.class)
 @ConditionalOnClass({MiloService.class, MiloConnectPool.class})
-@ConditionalOnProperty(prefix = MiloProperties.PREFIX, value = "enabled", matchIfMissing = true)
+@ConditionalOnProperty(prefix = MiloProperties.PREFIX, value = "enabled", havingValue = "true", matchIfMissing = true)
 @Slf4j
 public class MiloAutoConfiguration {
     private final MiloProperties properties;
