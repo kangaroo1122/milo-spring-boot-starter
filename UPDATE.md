@@ -1,3 +1,8 @@
+## 3.0.6.12
+
+- 升级到最新版本 0.6.12
+- 连接池配置优化 [#gitee I86XSX](https://gitee.com/vampire001/milo-spring-boot-starter/issues/I86XSX)
+
 ## 3.0.5
 
 - 支持配置是否启用组件：`kangaroohy.milo.enabled=true`
