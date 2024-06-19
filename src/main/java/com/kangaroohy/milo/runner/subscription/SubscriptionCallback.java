@@ -1,5 +1,8 @@
 package com.kangaroohy.milo.runner.subscription;
 
+import org.eclipse.milo.opcua.sdk.client.subscriptions.ManagedDataItem;
+import org.eclipse.milo.opcua.stack.core.types.builtin.DataValue;
+
 /**
  * 类 SubscriptionCallback 功能描述：<br/>
  *
@@ -9,5 +12,5 @@ package com.kangaroohy.milo.runner.subscription;
  */
 public interface SubscriptionCallback {
 
-    void onSubscribe(String identifier, Object value);
+    void onSubscribe(ManagedDataItem dataItem, DataValue value);
 }

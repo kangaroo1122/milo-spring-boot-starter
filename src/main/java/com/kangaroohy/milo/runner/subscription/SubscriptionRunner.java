@@ -72,7 +72,7 @@ public class SubscriptionRunner {
             }
             List<ManagedDataItem> dataItemList = subscription.createDataItems(nodeIdList);
             for (ManagedDataItem dataItem : dataItemList) {
-                dataItem.addDataValueListener((item) -> callback.onSubscribe(dataItem.getNodeId().getIdentifier().toString(), item.getValue().getValue()));
+                dataItem.addDataValueListener((item) -> callback.onSubscribe(dataItem, item));
             }
         } catch (Exception e) {
             log.error("订阅时出现了异常：{}", e.getMessage(), e);
