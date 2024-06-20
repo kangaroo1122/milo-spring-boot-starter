@@ -1,3 +1,8 @@
+## 3.1.0.6.13
+
+- 升级到最新版本 0.6.13
+- 修改订阅监听callback参数以获取更多信息，具有破坏性！！！[#PR15](https://github.com/kangaroo1122/milo-spring-boot-starter/pull/15)
+
 ## 3.0.6.12
 
 - 升级到最新版本 0.6.12

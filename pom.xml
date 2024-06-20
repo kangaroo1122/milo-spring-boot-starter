@@ -6,7 +6,7 @@
     <name>milo-spring-boot-starter</name>
     <groupId>com.kangaroohy</groupId>
     <artifactId>milo-spring-boot-starter</artifactId>
-    <version>3.0.6.12</version>
+    <version>3.1.0.6.13</version>
     <description>milo opc ua spring boot starter封装组件</description>
     <url>https://github.com/kangaroo1122/milo-spring-boot-starter</url>
 
@@ -14,7 +14,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <spring-boot.version>2.1.18.RELEASE</spring-boot.version>
-        <milo.version>0.6.12</milo.version>
+        <milo.version>0.6.13</milo.version>
         <commons-pool2.version>2.12.0</commons-pool2.version>
         <lombok.version>1.18.32</lombok.version>
     </properties>
