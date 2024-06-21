@@ -1,3 +1,7 @@
+## 3.1.1.0.6.13
+
+- 读值支持返回更多信息 [#PR16](https://github.com/kangaroo1122/milo-spring-boot-starter/pull/16)
+
 ## 3.1.0.6.13
 
 - 升级到最新版本 0.6.13
