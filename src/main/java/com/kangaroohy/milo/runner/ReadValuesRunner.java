@@ -48,6 +48,7 @@ public class ReadValuesRunner {
                     entityList.add(ReadWriteEntity.builder()
                             .identifier(id)
                             .value(value)
+                            .dataValue(dataValues.get(i))
                             .build());
                 }
             }
