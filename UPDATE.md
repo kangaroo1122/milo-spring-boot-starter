@@ -1,3 +1,8 @@
+## 3.1.1.0.6.14
+
+- 升级到最新版本 0.6.14
+- `readFromOpcUa` 读取数值时支持设置超时时间，默认 `10000ms`
+
 ## 3.1.1.0.6.13
 
 - 读值支持返回更多信息 [#PR16](https://github.com/kangaroo1122/milo-spring-boot-starter/pull/16)

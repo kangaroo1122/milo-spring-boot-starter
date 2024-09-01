@@ -448,7 +448,18 @@ public class MiloService {
      * @return
      */
     public ReadWriteEntity readFromOpcUa(String id) throws Exception {
-        return readFromOpcUa(id, null);
+        return readFromOpcUa(id, 10000.0);
+    }
+
+    /**
+     * 读取kep点位值
+     *
+     * @param id     点位id
+     * @param maxAge 超时时间，默认10000ms
+     * @return
+     */
+    public ReadWriteEntity readFromOpcUa(String id, double maxAge) throws Exception {
+        return readFromOpcUa(id, maxAge, null);
     }
 
     /**
@@ -459,7 +470,19 @@ public class MiloService {
      * @return
      */
     public ReadWriteEntity readFromOpcUa(String id, String clientName) throws Exception {
-        List<ReadWriteEntity> entityList = readFromOpcUa(Collections.singletonList(id), clientName);
+        return readFromOpcUa(id, 10000.0, clientName);
+    }
+
+    /**
+     * 读取kep点位值
+     *
+     * @param id         点位id
+     * @param maxAge     超时时间，默认10000ms
+     * @param clientName 配置key
+     * @return
+     */
+    public ReadWriteEntity readFromOpcUa(String id, double maxAge, String clientName) throws Exception {
+        List<ReadWriteEntity> entityList = readFromOpcUa(Collections.singletonList(id), maxAge, clientName);
         if (!entityList.isEmpty()) {
             return entityList.get(0);
         }
@@ -473,7 +496,18 @@ public class MiloService {
      * @return
      */
     public List<ReadWriteEntity> readFromOpcUa(List<String> ids) throws Exception {
-        return readFromOpcUa(ids, null);
+        return readFromOpcUa(ids, 10000.0);
+    }
+
+    /**
+     * 读取kep点位值
+     *
+     * @param ids    点位id数组
+     * @param maxAge 超时时间，默认10000ms
+     * @return
+     */
+    public List<ReadWriteEntity> readFromOpcUa(List<String> ids, double maxAge) throws Exception {
+        return readFromOpcUa(ids, maxAge, null);
     }
 
     /**
@@ -484,8 +518,20 @@ public class MiloService {
      * @return
      */
     public List<ReadWriteEntity> readFromOpcUa(List<String> ids, String clientName) throws Exception {
+        return readFromOpcUa(ids, 10000.0, clientName);
+    }
+
+    /**
+     * 读取kep点位值
+     *
+     * @param ids        点位id数组
+     * @param maxAge     超时时间，默认10000ms
+     * @param clientName 配置key
+     * @return
+     */
+    public List<ReadWriteEntity> readFromOpcUa(List<String> ids, double maxAge, String clientName) throws Exception {
         MiloProperties.Config config = CustomUtil.getConfig(properties, clientName);
-        ReadValuesRunner runner = new ReadValuesRunner(ids);
+        ReadValuesRunner runner = new ReadValuesRunner(ids, maxAge);
         OpcUaClient client = connectPool.borrowObject(config);
         if (client != null) {
             try {
@@ -510,7 +556,7 @@ public class MiloService {
     /**
      * 订阅kep点位值
      *
-     * @param ids 点位id数组
+     * @param ids        点位id数组
      * @param clientName 配置key
      * @return
      */
@@ -534,7 +580,7 @@ public class MiloService {
      *
      * @param ids              点位id数组
      * @param samplingInterval 订阅时间间隔 默认1000 ms
-     * @param clientName 配置key
+     * @param clientName       配置key
      * @return
      */
     public void subscriptionFromOpcUa(List<String> ids, double samplingInterval, String clientName, SubscriptionCallback callback) throws Exception {

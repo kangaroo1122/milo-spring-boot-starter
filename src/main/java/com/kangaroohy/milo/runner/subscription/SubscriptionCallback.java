@@ -10,6 +10,7 @@ import org.eclipse.milo.opcua.stack.core.types.builtin.DataValue;
  * @version 0.0.1
  * @date 2023/5/8 22:14
  */
+@FunctionalInterface
 public interface SubscriptionCallback {
 
     void onSubscribe(ManagedDataItem dataItem, DataValue value);
