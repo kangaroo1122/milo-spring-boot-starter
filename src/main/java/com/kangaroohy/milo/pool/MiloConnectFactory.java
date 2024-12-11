@@ -98,7 +98,7 @@ public class MiloConnectFactory implements KeyedPooledObjectFactory<MiloProperti
     }
 
     private OpcUaClient createClient(MiloProperties.Config key) throws Exception {
-        KeyStoreLoader loader = new KeyStoreLoader().load();
+        KeyStoreLoader.load();
 
         return OpcUaClient.create(
                 this.endpointUrl(key),
@@ -115,10 +115,10 @@ public class MiloConnectFactory implements KeyedPooledObjectFactory<MiloProperti
                         configBuilder
                                 .setApplicationName(LocalizedText.english("milo opc-ua client"))
                                 .setApplicationUri("urn:kangaroohy:milo:client")
-                                .setKeyPair(loader.getClientKeyPair())
-                                .setCertificate(loader.getClientCertificate())
-                                .setCertificateChain(loader.getClientCertificateChain())
-                                .setCertificateValidator(loader.getCertificateValidator())
+                                .setKeyPair(KeyStoreLoader.getClientKeyPair())
+                                .setCertificate(KeyStoreLoader.getClientCertificate())
+                                .setCertificateChain(KeyStoreLoader.getClientCertificateChain())
+                                .setCertificateValidator(KeyStoreLoader.getCertificateValidator())
                                 .setIdentityProvider(this.identityProvider(key))
                                 .setRequestTimeout(Unsigned.uint(5000))
                                 .build()

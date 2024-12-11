@@ -20,31 +20,38 @@ import java.util.regex.Pattern;
 @Slf4j
 public class KeyStoreLoader {
 
-    private static final Pattern IP_ADDR_PATTERN = Pattern.compile(
-        "^(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
+    private static final Pattern IP_ADDR_PATTERN = Pattern.compile("^(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
 
     private static final String CLIENT_ALIAS = "client-ai";
     private static final char[] PASSWORD = "password".toCharArray();
 
-    private X509Certificate clientCertificate;
-    private X509Certificate[] clientCertificateChain;
-    private KeyPair clientKeyPair;
-    private DefaultClientCertificateValidator certificateValidator;
+    private static X509Certificate clientCertificate;
+    private static X509Certificate[] clientCertificateChain;
+    private static KeyPair clientKeyPair;
+    private static DefaultClientCertificateValidator certificateValidator;
 
-    public KeyStoreLoader load() throws Exception {
-        Path securityTempDir = Paths.get(System.getProperty("java.io.tmpdir"), "security");
-        Files.createDirectories(securityTempDir);
-        if (!Files.exists(securityTempDir)) {
-            throw new Exception("unable to create security dir: " + securityTempDir);
+    private static boolean isLoaded = false;
+
+    private static final Path SECURITY_TEMP_DIR = Paths.get(System.getProperty("user.home"), ".milo-security");
+
+    public static synchronized void load() throws Exception {
+        if (isLoaded) {
+            log.info("KeyStore is already loaded, skipping initialization.");
+            return;
         }
 
-        File pkiDir = securityTempDir.resolve("pki").toFile();
+        Files.createDirectories(SECURITY_TEMP_DIR);
+        if (!Files.exists(SECURITY_TEMP_DIR)) {
+            throw new Exception("unable to create security dir: " + SECURITY_TEMP_DIR);
+        }
 
-        log.info("security temp dir: {}", securityTempDir.toAbsolutePath());
+        File pkiDir = SECURITY_TEMP_DIR.resolve("pki").toFile();
+
+        log.info("security temp dir: {}", SECURITY_TEMP_DIR.toAbsolutePath());
 
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
 
-        Path serverKeyStore = securityTempDir.resolve("milo-client.pfx");
+        Path serverKeyStore = SECURITY_TEMP_DIR.resolve("milo-client.pfx");
 
         DefaultTrustListManager trustListManager = new DefaultTrustListManager(pkiDir);
 
@@ -101,22 +108,22 @@ public class KeyStoreLoader {
             clientKeyPair = new KeyPair(clientPublicKey, (PrivateKey) clientPrivateKey);
         }
 
-        return this;
+        isLoaded = true;
     }
 
-    public X509Certificate getClientCertificate() {
+    public static X509Certificate getClientCertificate() {
         return clientCertificate;
     }
 
-    public X509Certificate[] getClientCertificateChain() {
+    public static X509Certificate[] getClientCertificateChain() {
         return clientCertificateChain;
     }
 
-    public DefaultClientCertificateValidator getCertificateValidator() {
+    public static DefaultClientCertificateValidator getCertificateValidator() {
         return certificateValidator;
     }
 
-    public KeyPair getClientKeyPair() {
+    public static KeyPair getClientKeyPair() {
         return clientKeyPair;
     }
 
