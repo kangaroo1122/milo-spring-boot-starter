@@ -22,7 +22,21 @@ public class CustomUtil {
 
     private static final String OPC_UA_NOT_CONFIG = "请配置OPC UA地址信息";
 
+    private static final Map<String, MiloProperties.Config> CONFIG = new LinkedHashMap<>();
+
     private CustomUtil() {
+    }
+
+    public static Map<String, MiloProperties.Config> getConfig() {
+        return CONFIG;
+    }
+
+    public static void putConfig(String key, MiloProperties.Config config) {
+        CONFIG.put(key, config);
+    }
+
+    public static void putAllConfig(Map<String, MiloProperties.Config> config) {
+        CONFIG.putAll(config);
     }
 
     public static String getHostname() {
@@ -89,14 +103,14 @@ public class CustomUtil {
     }
 
     public static void verifyProperties(MiloProperties properties) {
-        if (properties.getConfig().isEmpty()) {
+        if (getConfig().isEmpty()) {
             throw new EndPointNotFoundException(OPC_UA_NOT_CONFIG);
         }
         if (!StringUtils.hasText(properties.getPrimary())) {
-            Set<String> keySet = properties.getConfig().keySet();
+            Set<String> keySet = getConfig().keySet();
             properties.setPrimary(keySet.stream().findFirst().orElseThrow(() -> new EndPointNotFoundException(OPC_UA_NOT_CONFIG)));
         }
-        properties.getConfig().forEach((key, config) -> {
+        getConfig().forEach((key, config) -> {
             if (!StringUtils.hasText(config.getEndpoint())) {
                 throw new EndPointNotFoundException(OPC_UA_NOT_CONFIG + ": " + key);
             }
@@ -108,7 +122,6 @@ public class CustomUtil {
     }
 
     public static MiloProperties.Config getConfig(MiloProperties properties, String clientName) {
-        Map<String, MiloProperties.Config> config = properties.getConfig();
-        return StringUtils.hasText(clientName) ? config.get(clientName) : config.get(properties.getPrimary());
+        return StringUtils.hasText(clientName) ? getConfig().get(clientName) : getConfig().get(properties.getPrimary());
     }
 }

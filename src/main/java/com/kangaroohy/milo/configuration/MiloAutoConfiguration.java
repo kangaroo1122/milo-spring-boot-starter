@@ -2,7 +2,9 @@ package com.kangaroohy.milo.configuration;
 
 import com.kangaroohy.milo.pool.MiloConnectFactory;
 import com.kangaroohy.milo.pool.MiloConnectPool;
+import com.kangaroohy.milo.service.MiloConfigProvider;
 import com.kangaroohy.milo.service.MiloService;
+import com.kangaroohy.milo.utils.CustomUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
@@ -16,6 +18,7 @@ import org.springframework.context.annotation.DependsOn;
 
 import javax.annotation.PreDestroy;
 import java.time.Duration;
+import java.util.Optional;
 
 /**
  * @author kangaroo hy
@@ -39,7 +42,13 @@ public class MiloAutoConfiguration {
 
     @Bean(name = "miloConnectPool")
     @ConditionalOnMissingBean({MiloConnectPool.class})
-    protected MiloConnectPool miloConnectPool() {
+    protected MiloConnectPool miloConnectPool(Optional<MiloConfigProvider> configProvider) {
+        // 代码配置优先
+        configProvider.ifPresent(miloConfigProvider -> CustomUtil.putAllConfig(miloConfigProvider.config()));
+        // yml配置
+        if (!this.properties.getConfig().isEmpty()) {
+            CustomUtil.putAllConfig(this.properties.getConfig());
+        }
         MiloConnectFactory objectFactory = new MiloConnectFactory(this.properties);
         //设置对象池的相关参数
         GenericKeyedObjectPoolConfig<OpcUaClient> poolConfig = new GenericKeyedObjectPoolConfig<>();
@@ -96,7 +105,7 @@ public class MiloAutoConfiguration {
             return;
         }
 
-        properties.getConfig().forEach((key, config) -> {
+        CustomUtil.getConfig().forEach((key, config) -> {
             for (int i = 0; i < Math.min(initialSize, maxIdle); i++) {
                 try {
                     connectPool.addObject(config);
