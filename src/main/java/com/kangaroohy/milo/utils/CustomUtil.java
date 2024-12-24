@@ -102,13 +102,22 @@ public class CustomUtil {
         return nodeId;
     }
 
-    public static void verifyProperties(MiloProperties properties) {
+    public static void verifyProperties(MiloProperties properties, String primary) {
         if (getConfig().isEmpty()) {
             throw new EndPointNotFoundException(OPC_UA_NOT_CONFIG);
+        }
+        if (StringUtils.hasText(primary)) {
+            Set<String> keySet = getConfig().keySet();
+            if (!keySet.contains(primary)) {
+                log.warn("The primary property '{}' does not exist in the config, ignore it", primary);
+            } else {
+                properties.setPrimary(primary);
+            }
         }
         if (!StringUtils.hasText(properties.getPrimary())) {
             Set<String> keySet = getConfig().keySet();
             properties.setPrimary(keySet.stream().findFirst().orElseThrow(() -> new EndPointNotFoundException(OPC_UA_NOT_CONFIG)));
+            log.warn("The primary property is '{}'.", properties.getPrimary());
         }
         getConfig().forEach((key, config) -> {
             if (!StringUtils.hasText(config.getEndpoint())) {

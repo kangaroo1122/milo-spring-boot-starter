@@ -252,8 +252,21 @@ public class CustomRunner implements ApplicationRunner {
 
 ## 数据库动态加载连接
 
-注入`MiloConnectPool`，调用对应的新增删除方法即可
+实现`MiloConfigProvider`，`@Component` 给spring管理即可
+
 ~~~java
-    @Autowired
-    private MiloConnectPool connectPool;
+@Component
+public class MiloProvider implements MiloConfigProvider {
+    @Override
+    public Map<String, MiloProperties.Config> config() {
+        Map<String, MiloProperties.Config> configMap = new HashMap<>();
+        MiloProperties.Config config = new MiloProperties.Config();
+        config.setEndpoint("opc.tcp://192.168.68.134:49320");
+        config.setSecurityPolicy(SecurityPolicy.Basic256);
+        config.setUsername("OPCUA");
+        config.setPassword("123456");
+        configMap.put("dbConfig", config);
+        return configMap;
+    }
+}
 ~~~

@@ -33,8 +33,8 @@ import java.util.Optional;
 @Slf4j
 public class MiloConnectFactory implements KeyedPooledObjectFactory<MiloProperties.Config, OpcUaClient> {
 
-    public MiloConnectFactory(MiloProperties properties) {
-        CustomUtil.verifyProperties(properties);
+    public MiloConnectFactory(MiloProperties properties, String primary) {
+        CustomUtil.verifyProperties(properties, primary);
     }
 
     /**

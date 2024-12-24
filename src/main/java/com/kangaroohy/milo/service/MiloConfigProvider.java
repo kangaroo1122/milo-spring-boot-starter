@@ -14,4 +14,8 @@ import java.util.Map;
 public interface MiloConfigProvider {
 
     Map<String, MiloProperties.Config> config();
+
+    default String primary() {
+        return null;
+    }
 }

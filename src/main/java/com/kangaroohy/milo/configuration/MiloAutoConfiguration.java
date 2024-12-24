@@ -48,8 +48,14 @@ public class MiloAutoConfiguration {
             CustomUtil.putAllConfig(this.properties.getConfig());
         }
         // 代码配置优先，存在则覆盖
+        String primary = null;
+        if (configProvider.isPresent()) {
+            MiloConfigProvider miloConfigProvider = configProvider.get();
+            CustomUtil.putAllConfig(miloConfigProvider.config());
+            primary = miloConfigProvider.primary();
+        }
         configProvider.ifPresent(miloConfigProvider -> CustomUtil.putAllConfig(miloConfigProvider.config()));
-        MiloConnectFactory objectFactory = new MiloConnectFactory(this.properties);
+        MiloConnectFactory objectFactory = new MiloConnectFactory(this.properties, primary);
         //设置对象池的相关参数
         GenericKeyedObjectPoolConfig<OpcUaClient> poolConfig = new GenericKeyedObjectPoolConfig<>();
 
