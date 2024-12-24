@@ -43,12 +43,12 @@ public class MiloAutoConfiguration {
     @Bean(name = "miloConnectPool")
     @ConditionalOnMissingBean({MiloConnectPool.class})
     protected MiloConnectPool miloConnectPool(Optional<MiloConfigProvider> configProvider) {
-        // 代码配置优先
-        configProvider.ifPresent(miloConfigProvider -> CustomUtil.putAllConfig(miloConfigProvider.config()));
         // yml配置
         if (!this.properties.getConfig().isEmpty()) {
             CustomUtil.putAllConfig(this.properties.getConfig());
         }
+        // 代码配置优先，存在则覆盖
+        configProvider.ifPresent(miloConfigProvider -> CustomUtil.putAllConfig(miloConfigProvider.config()));
         MiloConnectFactory objectFactory = new MiloConnectFactory(this.properties);
         //设置对象池的相关参数
         GenericKeyedObjectPoolConfig<OpcUaClient> poolConfig = new GenericKeyedObjectPoolConfig<>();
