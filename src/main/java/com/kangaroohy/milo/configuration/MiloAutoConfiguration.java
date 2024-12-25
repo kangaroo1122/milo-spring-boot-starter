@@ -43,17 +43,7 @@ public class MiloAutoConfiguration {
     @Bean(name = "miloConnectPool")
     @ConditionalOnMissingBean({MiloConnectPool.class})
     protected MiloConnectPool miloConnectPool(Optional<MiloConfigProvider> configProvider) {
-        // yml配置
-        if (!this.properties.getConfig().isEmpty()) {
-            CustomUtil.putAllConfig(this.properties.getConfig());
-        }
-        // 代码配置优先，存在则覆盖
-        String primary = null;
-        if (configProvider.isPresent()) {
-            MiloConfigProvider miloConfigProvider = configProvider.get();
-            CustomUtil.putAllConfig(miloConfigProvider.config());
-            primary = miloConfigProvider.primary();
-        }
+        String primary = initConfig(configProvider);
         MiloConnectFactory objectFactory = new MiloConnectFactory(this.properties, primary);
         //设置对象池的相关参数
         GenericKeyedObjectPoolConfig<OpcUaClient> poolConfig = new GenericKeyedObjectPoolConfig<>();
@@ -66,7 +56,7 @@ public class MiloAutoConfiguration {
         //最大总数 10
         poolConfig.setMaxTotal(pool.getMaxTotal());
         // 多久执行一次对象扫描，将无用的对象销毁，默认-1不扫描
-        // poolConfig.setTimeBetweenEvictionRuns(Duration.ofMinutes(1));
+        poolConfig.setTimeBetweenEvictionRuns(Duration.ofMinutes(1));
         // 在获取对象的时候检查有效性, 默认false
         poolConfig.setTestOnBorrow(true);
         // 在归还对象的时候检查有效性, 默认false
@@ -97,6 +87,27 @@ public class MiloAutoConfiguration {
     @DependsOn("miloConnectPool")
     public MiloService miloService(MiloConnectPool miloConnectPool) {
         return new MiloService(miloConnectPool, properties);
+    }
+
+    /**
+     * 配置初始化解析
+     *
+     * @param configProvider
+     * @return
+     */
+    private String initConfig(Optional<MiloConfigProvider> configProvider) {
+        // yml配置
+        if (!this.properties.getConfig().isEmpty()) {
+            CustomUtil.putAllConfig(this.properties.getConfig());
+        }
+        // 代码配置优先，存在则覆盖
+        String primary = null;
+        if (configProvider.isPresent()) {
+            MiloConfigProvider miloConfigProvider = configProvider.get();
+            CustomUtil.putAllConfig(miloConfigProvider.config());
+            primary = miloConfigProvider.primary();
+        }
+        return primary;
     }
 
     /**
