@@ -37,6 +37,11 @@ kangaroohy:
         security-policy: basic256sha256
         username: OPCUA
         password: 123456
+      test:
+        endpoint: opc.tcp://127.0.0.1:49321
+        security-policy: basic256sha256
+        username: OPCUA
+        password: 123456
 ```
 
 特别提醒：
