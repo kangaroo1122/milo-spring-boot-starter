@@ -15,11 +15,18 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <spring-boot.version>2.1.18.RELEASE</spring-boot.version>
         <milo.version>0.6.16</milo.version>
-        <lombok.version>1.18.32</lombok.version>
+        <lombok.version>1.18.48</lombok.version>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
 
+    <licenses>
+        <license>
+            <name>The ApacheSoftware License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
     <organization>
         <name>kangaroo1122</name>
         <url>https://www.kangaroohy.com</url>
@@ -34,8 +41,9 @@
         </developer>
     </developers>
     <scm>
+        <connection>scm:git:https://github.com/kangaroo1122/milo-spring-boot-starter.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/kangaroo1122/milo-spring-boot-starter.git</developerConnection>
         <url>https://github.com/kangaroo1122/milo-spring-boot-starter</url>
-        <connection>https://github.com/kangaroo1122/milo-spring-boot-starter.git</connection>
     </scm>
     <issueManagement>
         <system>GitHub</system>
@@ -68,32 +76,9 @@
         </dependency>
     </dependencies>
 
-    <distributionManagement>
-        <repository>
-            <id>ossrh</id>
-            <name>oss nexus repository hosting</name>
-            <url>https://s01.oss.sonatype.org/content/repositories/releases/</url>
-        </repository>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <name>oss nexus repository hosting</name>
-            <url>https://s01.oss.sonatype.org/content/repositories/snapshots/</url>
-        </snapshotRepository>
-    </distributionManagement>
-
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.10.1</version>
-                <configuration>
-                    <compilerArgs>
-                        <arg>-parameters</arg>
-                    </compilerArgs>
-                </configuration>
-            </plugin>
-            <!--生成源码插件-->
+            <!-- Source -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
@@ -108,13 +93,19 @@
                     </execution>
                 </executions>
             </plugin>
-            <!--javadoc生成插件		-->
+            <!-- Javadoc -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>2.10.4</version>
+                <version>3.3.2</version>
                 <configuration>
-                    <additionalparam>-Xdoclint:none</additionalparam>
+                    <show>private</show>
+                    <nohelp>true</nohelp>
+                    <charset>UTF-8</charset>
+                    <encoding>UTF-8</encoding>
+                    <docencoding>UTF-8</docencoding>
+                    <doclint>none</doclint>
+                    <detectJavaApiLink>false</detectJavaApiLink>
                 </configuration>
                 <executions>
                     <execution>
@@ -126,11 +117,11 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- jar等文件签名插件，用于生成asc签名文件 -->
+            <!-- GPG -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-gpg-plugin</artifactId>
-                <version>1.6</version>
+                <version>3.1.0</version>
                 <executions>
                     <execution>
                         <id>gpg</id>
@@ -140,6 +131,16 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <!--maven插件-->
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>0.9.0</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                </configuration>
             </plugin>
         </plugins>
     </build>
