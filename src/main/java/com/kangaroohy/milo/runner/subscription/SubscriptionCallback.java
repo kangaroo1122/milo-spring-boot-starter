@@ -13,5 +13,13 @@ import org.eclipse.milo.opcua.stack.core.types.builtin.DataValue;
 @FunctionalInterface
 public interface SubscriptionCallback {
 
+    /**
+     * Invoked asynchronously for a monitored value change. Implementations
+     * should still be short-lived; long-running work belongs in the caller's
+     * own queue or executor.
+     *
+     * @param dataItem 发生变化的监控项
+     * @param value 最新数据值
+     */
     void onSubscribe(ManagedDataItem dataItem, DataValue value);
 }

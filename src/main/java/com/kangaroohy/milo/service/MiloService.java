@@ -3,43 +3,48 @@ package com.kangaroohy.milo.service;
 import com.kangaroohy.milo.configuration.MiloProperties;
 import com.kangaroohy.milo.model.ReadWriteEntity;
 import com.kangaroohy.milo.model.WriteEntity;
-import com.kangaroohy.milo.pool.MiloConnectPool;
 import com.kangaroohy.milo.runner.BrowseNodeRunner;
 import com.kangaroohy.milo.runner.BrowseRunner;
 import com.kangaroohy.milo.runner.ReadValuesRunner;
 import com.kangaroohy.milo.runner.WriteValuesRunner;
 import com.kangaroohy.milo.runner.subscription.SubscriptionCallback;
-import com.kangaroohy.milo.runner.subscription.SubscriptionRunner;
-import com.kangaroohy.milo.utils.CustomUtil;
-import lombok.extern.slf4j.Slf4j;
+import com.kangaroohy.milo.runner.subscription.SubscriptionHandle;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.stack.core.types.builtin.Variant;
 import org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned;
-import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
 
 /**
+ * OPC UA 业务服务入口，提供浏览、读值、写值和订阅能力。
+ *
+ * <p>客户端连接由 {@link MiloClientManager} 统一管理，订阅由
+ * {@link MiloSubscriptionManager} 统一复用和维护。</p>
+ *
  * @author kangaroo hy
  * @date 2020/4/25
  * @desc milo-spring-boot-starter
  * @since 0.0.1
  */
-@Service
-@Slf4j
 public class MiloService {
-    private final MiloConnectPool connectPool;
+
+    private final MiloClientManager clients;
+    private final MiloSubscriptionManager subscriptions;
     private final MiloProperties properties;
 
-    public MiloService(MiloConnectPool connectPool, MiloProperties properties) {
-        this.connectPool = connectPool;
+    public MiloService(MiloClientManager clients,
+                       MiloSubscriptionManager subscriptions,
+                       MiloProperties properties) {
+        this.clients = clients;
+        this.subscriptions = subscriptions;
         this.properties = properties;
     }
 
     /**
-     * 遍历OPC UA服务器根节点
+     * 遍历 OPC UA 服务器根节点。
      *
      * @return 根节点列表
      */
@@ -48,58 +53,38 @@ public class MiloService {
     }
 
     /**
-     * 遍历OPC UA服务器根节点
+     * 使用指定 endpoint 遍历 OPC UA 服务器根节点。
      *
-     * @param clientName 配置key
+     * @param clientName 配置 key，为 null 时使用 primary
      * @return 根节点列表
      */
     public List<String> browseRoot(String clientName) throws Exception {
-        MiloProperties.Config config = CustomUtil.getConfig(properties, clientName);
-        BrowseRunner runner = new BrowseRunner();
-        OpcUaClient client = connectPool.borrowObject(config);
-        if (client != null) {
-            try {
-                return runner.run(client);
-            } finally {
-                connectPool.returnObject(config, client);
-            }
-        }
-        return Collections.emptyList();
+        return withClient(clientName, client -> new BrowseRunner().run(client));
     }
 
     /**
-     * 遍历OPC UA服务器指定节点
+     * 遍历指定节点下的叶子节点。
      *
-     * @param browseRoot 节点名称
-     * @return 指定节点 tag列表
+     * @param browseRoot 节点标识
+     * @return 节点列表
      */
     public List<String> browseNode(String browseRoot) throws Exception {
         return browseNode(browseRoot, null);
     }
 
     /**
-     * 遍历OPC UA服务器指定节点
+     * 使用指定 endpoint 遍历指定节点下的叶子节点。
      *
-     * @param browseRoot 节点名称
-     * @param clientName 配置key
-     * @return 指定节点 tag列表
+     * @param browseRoot 节点标识
+     * @param clientName 配置 key，为 null 时使用 primary
+     * @return 节点列表
      */
     public List<String> browseNode(String browseRoot, String clientName) throws Exception {
-        MiloProperties.Config config = CustomUtil.getConfig(properties, clientName);
-        BrowseNodeRunner runner = new BrowseNodeRunner(browseRoot);
-        OpcUaClient client = connectPool.borrowObject(config);
-        if (client != null) {
-            try {
-                return runner.run(client);
-            } finally {
-                connectPool.returnObject(config, client);
-            }
-        }
-        return Collections.emptyList();
+        return withClient(clientName, client -> new BrowseNodeRunner(browseRoot).run(client));
     }
 
     /**
-     * 指定类型 写入kep点位值
+     * 按调用方指定的数据类型写入 Kepware 点位。
      *
      * @param entity 待写入数据
      */
@@ -108,17 +93,17 @@ public class MiloService {
     }
 
     /**
-     * 指定类型 写入kep点位值
+     * 使用指定 endpoint 按调用方指定的数据类型写入点位。
      *
-     * @param entity     待写入数据
-     * @param clientName 配置key
+     * @param entity 待写入数据
+     * @param clientName 配置 key，为 null 时使用 primary
      */
     public void writeSpecifyType(WriteEntity entity, String clientName) throws Exception {
         writeSpecifyType(Collections.singletonList(entity), clientName);
     }
 
     /**
-     * 指定类型 写入kep点位值，可批量写入不同类型的值
+     * 批量写入不同类型的点位。
      *
      * @param entities 待写入数据
      */
@@ -127,26 +112,21 @@ public class MiloService {
     }
 
     /**
-     * 指定类型 写入kep点位值，可批量写入不同类型的值
+     * 使用指定 endpoint 批量写入不同类型的点位。
      *
-     * @param entities   待写入数据
-     * @param clientName 配置key
+     * @param entities 待写入数据
+     * @param clientName 配置 key，为 null 时使用 primary
      */
     public void writeSpecifyType(List<WriteEntity> entities, String clientName) throws Exception {
-        MiloProperties.Config config = CustomUtil.getConfig(properties, clientName);
-        WriteValuesRunner runner = new WriteValuesRunner(entities);
-        OpcUaClient client = connectPool.borrowObject(config);
-        if (client != null) {
-            try {
-                runner.run(client);
-            } finally {
-                connectPool.returnObject(config, client);
-            }
-        }
+        List<WriteEntity> safeEntities = entities == null ? Collections.emptyList() : entities;
+        withClient(clientName, client -> {
+            new WriteValuesRunner(safeEntities, properties.getWriteBatchSize(), properties.getRequestTimeout()).run(client);
+            return null;
+        });
     }
 
     /**
-     * 写入kep点位值
+     * 使用通用 Variant 类型写入点位。
      *
      * @param entity 待写入数据
      */
@@ -155,17 +135,17 @@ public class MiloService {
     }
 
     /**
-     * 写入kep点位值
+     * 使用指定 endpoint 和通用 Variant 类型写入点位。
      *
-     * @param entity     待写入数据
-     * @param clientName 配置key
+     * @param entity 待写入数据
+     * @param clientName 配置 key，为 null 时使用 primary
      */
     public void writeToOpcUa(ReadWriteEntity entity, String clientName) throws Exception {
         writeToOpcUa(Collections.singletonList(entity), clientName);
     }
 
     /**
-     * 写入kep点位值
+     * 批量使用通用 Variant 类型写入点位。
      *
      * @param entities 待写入数据
      */
@@ -174,36 +154,29 @@ public class MiloService {
     }
 
     /**
-     * 写入kep点位值
+     * 使用指定 endpoint 批量写入通用 Variant 类型点位。
      *
-     * @param entities   待写入数据
-     * @param clientName 配置key
+     * @param entities 待写入数据
+     * @param clientName 配置 key，为 null 时使用 primary
      */
     public void writeToOpcUa(List<ReadWriteEntity> entities, String clientName) throws Exception {
-        MiloProperties.Config config = CustomUtil.getConfig(properties, clientName);
-        List<WriteEntity> writeEntityList = new ArrayList<>();
-        if (!entities.isEmpty()) {
+        List<WriteEntity> writes = new ArrayList<>();
+        if (entities != null) {
             for (ReadWriteEntity entity : entities) {
-                writeEntityList.add(WriteEntity.builder()
+                if (entity == null) {
+                    throw new IllegalArgumentException("写入实体不能为空");
+                }
+                writes.add(WriteEntity.builder()
                         .identifier(entity.getIdentifier())
                         .variant(new Variant(entity.getValue()))
                         .build());
             }
         }
-        WriteValuesRunner runner = new WriteValuesRunner(writeEntityList);
-        OpcUaClient client = connectPool.borrowObject(config);
-        if (client != null) {
-            try {
-                runner.run(client);
-            } finally {
-                connectPool.returnObject(config, client);
-            }
-        }
+        writeSpecifyType(writes, clientName);
     }
 
     /**
-     * kepware 数据类型为：Char<br/>
-     * 8位带符号整数
+     * Kepware Char 类型：8 位带符号整数。
      *
      * @param entity 待写入数据
      */
@@ -212,19 +185,17 @@ public class MiloService {
     }
 
     /**
-     * kepware 数据类型为：Char<br/>
-     * 8位带符号整数
+     * 使用指定 endpoint 写入 Kepware Char 类型（8 位带符号整数）。
      *
-     * @param entity     待写入数据
-     * @param clientName 配置key
+     * @param entity 待写入数据
+     * @param clientName 配置 key，为 null 时使用 primary
      */
     public void writeToOpcChar(ReadWriteEntity entity, String clientName) throws Exception {
         writeToOpcChar(Collections.singletonList(entity), clientName);
     }
 
     /**
-     * kepware 数据类型为：Char<br/>
-     * 8位带符号整数
+     * 批量写入 Kepware Char 类型（8 位带符号整数）。
      *
      * @param entities 待写入数据
      */
@@ -233,37 +204,17 @@ public class MiloService {
     }
 
     /**
-     * kepware 数据类型为：Char<br/>
-     * 8位带符号整数
+     * 使用指定 endpoint 批量写入 Kepware Char 类型。
      *
-     * @param entities   待写入数据
-     * @param clientName 配置key
+     * @param entities 待写入数据
+     * @param clientName 配置 key，为 null 时使用 primary
      */
     public void writeToOpcChar(List<ReadWriteEntity> entities, String clientName) throws Exception {
-        MiloProperties.Config config = CustomUtil.getConfig(properties, clientName);
-        List<WriteEntity> writeEntityList = new ArrayList<>();
-        if (!entities.isEmpty()) {
-            for (ReadWriteEntity entity : entities) {
-                writeEntityList.add(WriteEntity.builder()
-                        .identifier(entity.getIdentifier())
-                        .variant(new Variant(((Integer) entity.getValue()).byteValue()))
-                        .build());
-            }
-        }
-        WriteValuesRunner runner = new WriteValuesRunner(writeEntityList);
-        OpcUaClient client = connectPool.borrowObject(config);
-        if (client != null) {
-            try {
-                runner.run(client);
-            } finally {
-                connectPool.returnObject(config, client);
-            }
-        }
+        writeConverted(entities, clientName, value -> ((Number) value).byteValue());
     }
 
     /**
-     * kepware 数据类型为：Byte<br/>
-     * 8位无符号整数
+     * Kepware Byte 类型：8 位无符号整数。
      *
      * @param entity 待写入数据
      */
@@ -272,19 +223,17 @@ public class MiloService {
     }
 
     /**
-     * kepware 数据类型为：Byte<br/>
-     * 8位无符号整数
+     * 使用指定 endpoint 写入 Kepware Byte 类型（8 位无符号整数）。
      *
-     * @param entity     待写入数据
-     * @param clientName 配置key
+     * @param entity 待写入数据
+     * @param clientName 配置 key，为 null 时使用 primary
      */
     public void writeToOpcByte(ReadWriteEntity entity, String clientName) throws Exception {
         writeToOpcByte(Collections.singletonList(entity), clientName);
     }
 
     /**
-     * kepware 数据类型为：Byte<br/>
-     * 8位无符号整数
+     * 批量写入 Kepware Byte 类型（8 位无符号整数）。
      *
      * @param entities 待写入数据
      */
@@ -293,37 +242,17 @@ public class MiloService {
     }
 
     /**
-     * kepware 数据类型为：Byte<br/>
-     * 8位无符号整数
+     * 使用指定 endpoint 批量写入 Kepware Byte 类型。
      *
-     * @param entities   待写入数据
-     * @param clientName 配置key
+     * @param entities 待写入数据
+     * @param clientName 配置 key，为 null 时使用 primary
      */
     public void writeToOpcByte(List<ReadWriteEntity> entities, String clientName) throws Exception {
-        MiloProperties.Config config = CustomUtil.getConfig(properties, clientName);
-        List<WriteEntity> writeEntityList = new ArrayList<>();
-        if (!entities.isEmpty()) {
-            for (ReadWriteEntity entity : entities) {
-                writeEntityList.add(WriteEntity.builder()
-                        .identifier(entity.getIdentifier())
-                        .variant(new Variant(Unsigned.ubyte((Integer) entity.getValue())))
-                        .build());
-            }
-        }
-        WriteValuesRunner runner = new WriteValuesRunner(writeEntityList);
-        OpcUaClient client = connectPool.borrowObject(config);
-        if (client != null) {
-            try {
-                runner.run(client);
-            } finally {
-                connectPool.returnObject(config, client);
-            }
-        }
+        writeConverted(entities, clientName, value -> Unsigned.ubyte(((Number) value).intValue()));
     }
 
     /**
-     * kepware 数据类型为：Short<br/>
-     * 16位带符号整数
+     * Kepware Short 类型：16 位带符号整数。
      *
      * @param entity 待写入数据
      */
@@ -332,19 +261,17 @@ public class MiloService {
     }
 
     /**
-     * kepware 数据类型为：Short<br/>
-     * 16位带符号整数
+     * 使用指定 endpoint 写入 Kepware Short 类型（16 位带符号整数）。
      *
-     * @param entity     待写入数据
-     * @param clientName 配置key
+     * @param entity 待写入数据
+     * @param clientName 配置 key，为 null 时使用 primary
      */
     public void writeToOpcShort(ReadWriteEntity entity, String clientName) throws Exception {
         writeToOpcShort(Collections.singletonList(entity), clientName);
     }
 
     /**
-     * kepware 数据类型为：Short<br/>
-     * 16位带符号整数
+     * 批量写入 Kepware Short 类型（16 位带符号整数）。
      *
      * @param entities 待写入数据
      */
@@ -353,37 +280,17 @@ public class MiloService {
     }
 
     /**
-     * kepware 数据类型为：Short<br/>
-     * 16位带符号整数
+     * 使用指定 endpoint 批量写入 Kepware Short 类型。
      *
-     * @param entities   待写入数据
-     * @param clientName 配置key
+     * @param entities 待写入数据
+     * @param clientName 配置 key，为 null 时使用 primary
      */
     public void writeToOpcShort(List<ReadWriteEntity> entities, String clientName) throws Exception {
-        MiloProperties.Config config = CustomUtil.getConfig(properties, clientName);
-        List<WriteEntity> writeEntityList = new ArrayList<>();
-        if (!entities.isEmpty()) {
-            for (ReadWriteEntity entity : entities) {
-                writeEntityList.add(WriteEntity.builder()
-                        .identifier(entity.getIdentifier())
-                        .variant(new Variant(((Integer) entity.getValue()).shortValue()))
-                        .build());
-            }
-        }
-        WriteValuesRunner runner = new WriteValuesRunner(writeEntityList);
-        OpcUaClient client = connectPool.borrowObject(config);
-        if (client != null) {
-            try {
-                runner.run(client);
-            } finally {
-                connectPool.returnObject(config, client);
-            }
-        }
+        writeConverted(entities, clientName, value -> ((Number) value).shortValue());
     }
 
     /**
-     * kepware 数据类型为：Word<br/>
-     * 16位无符号整数
+     * Kepware Word 类型：16 位无符号整数。
      *
      * @param entity 待写入数据
      */
@@ -392,19 +299,17 @@ public class MiloService {
     }
 
     /**
-     * kepware 数据类型为：Word<br/>
-     * 16位无符号整数
+     * 使用指定 endpoint 写入 Kepware Word 类型（16 位无符号整数）。
      *
-     * @param entity     待写入数据
-     * @param clientName 配置key
+     * @param entity 待写入数据
+     * @param clientName 配置 key，为 null 时使用 primary
      */
     public void writeToOpcWord(ReadWriteEntity entity, String clientName) throws Exception {
         writeToOpcWord(Collections.singletonList(entity), clientName);
     }
 
     /**
-     * kepware 数据类型为：Word<br/>
-     * 16位无符号整数
+     * 批量写入 Kepware Word 类型（16 位无符号整数）。
      *
      * @param entities 待写入数据
      */
@@ -413,187 +318,207 @@ public class MiloService {
     }
 
     /**
-     * kepware 数据类型为：Word<br/>
-     * 16位无符号整数
+     * 使用指定 endpoint 批量写入 Kepware Word 类型。
      *
-     * @param entities   待写入数据
-     * @param clientName 配置key
+     * @param entities 待写入数据
+     * @param clientName 配置 key，为 null 时使用 primary
      */
     public void writeToOpcWord(List<ReadWriteEntity> entities, String clientName) throws Exception {
-        MiloProperties.Config config = CustomUtil.getConfig(properties, clientName);
-        List<WriteEntity> writeEntityList = new ArrayList<>();
-        if (!entities.isEmpty()) {
-            for (ReadWriteEntity entity : entities) {
-                writeEntityList.add(WriteEntity.builder()
-                        .identifier(entity.getIdentifier())
-                        .variant(new Variant(Unsigned.ushort((Integer) entity.getValue())))
-                        .build());
-            }
-        }
-        WriteValuesRunner runner = new WriteValuesRunner(writeEntityList);
-        OpcUaClient client = connectPool.borrowObject(config);
-        if (client != null) {
-            try {
-                runner.run(client);
-            } finally {
-                connectPool.returnObject(config, client);
-            }
-        }
+        writeConverted(entities, clientName, value -> Unsigned.ushort(((Number) value).intValue()));
     }
 
     /**
-     * 读取kep点位值
+     * 读取单个 Kepware 点位值。
      *
-     * @param id 点位id
-     * @return
+     * @param id 点位标识
+     * @return 点位值
      */
     public ReadWriteEntity readFromOpcUa(String id) throws Exception {
         return readFromOpcUa(id, 10000.0);
     }
 
     /**
-     * 读取kep点位值
+     * 读取单个点位值。
      *
-     * @param id     点位id
-     * @param maxAge 超时时间，默认10000ms
-     * @return
+     * @param id 点位标识
+     * @param maxAge 服务端允许使用的缓存年龄，单位毫秒
+     * @return 点位值
      */
     public ReadWriteEntity readFromOpcUa(String id, double maxAge) throws Exception {
         return readFromOpcUa(id, maxAge, null);
     }
 
     /**
-     * 读取kep点位值
+     * 使用指定 endpoint 读取单个点位值。
      *
-     * @param id         点位id
-     * @param clientName 配置key
-     * @return
+     * @param id 点位标识
+     * @param clientName 配置 key，为 null 时使用 primary
+     * @return 点位值
      */
     public ReadWriteEntity readFromOpcUa(String id, String clientName) throws Exception {
         return readFromOpcUa(id, 10000.0, clientName);
     }
 
     /**
-     * 读取kep点位值
+     * 使用指定 endpoint 读取单个点位值。
      *
-     * @param id         点位id
-     * @param maxAge     超时时间，默认10000ms
-     * @param clientName 配置key
-     * @return
+     * @param id 点位标识
+     * @param maxAge 服务端允许使用的缓存年龄，单位毫秒
+     * @param clientName 配置 key，为 null 时使用 primary
+     * @return 点位值
      */
     public ReadWriteEntity readFromOpcUa(String id, double maxAge, String clientName) throws Exception {
-        List<ReadWriteEntity> entityList = readFromOpcUa(Collections.singletonList(id), maxAge, clientName);
-        if (!entityList.isEmpty()) {
-            return entityList.get(0);
-        }
-        return null;
+        List<ReadWriteEntity> values = readFromOpcUa(Collections.singletonList(id), maxAge, clientName);
+        return values.isEmpty() ? null : values.get(0);
     }
 
     /**
-     * 读取kep点位值
+     * 批量读取 Kepware 点位值。
      *
-     * @param ids 点位id数组
-     * @return
+     * @param ids 点位标识列表
+     * @return 点位值列表
      */
     public List<ReadWriteEntity> readFromOpcUa(List<String> ids) throws Exception {
         return readFromOpcUa(ids, 10000.0);
     }
 
     /**
-     * 读取kep点位值
+     * 批量读取点位值，并指定服务端缓存最大年龄。
      *
-     * @param ids    点位id数组
-     * @param maxAge 超时时间，默认10000ms
-     * @return
+     * @param ids 点位标识列表
+     * @param maxAge 服务端允许使用的缓存年龄，单位毫秒
+     * @return 点位值列表
      */
     public List<ReadWriteEntity> readFromOpcUa(List<String> ids, double maxAge) throws Exception {
         return readFromOpcUa(ids, maxAge, null);
     }
 
     /**
-     * 读取kep点位值
+     * 使用指定 endpoint 批量读取点位值。
      *
-     * @param ids        点位id数组
-     * @param clientName 配置key
-     * @return
+     * @param ids 点位标识列表
+     * @param clientName 配置 key，为 null 时使用 primary
+     * @return 点位值列表
      */
     public List<ReadWriteEntity> readFromOpcUa(List<String> ids, String clientName) throws Exception {
         return readFromOpcUa(ids, 10000.0, clientName);
     }
 
     /**
-     * 读取kep点位值
+     * 使用指定 endpoint 批量读取点位值。
      *
-     * @param ids        点位id数组
-     * @param maxAge     超时时间，默认10000ms
-     * @param clientName 配置key
-     * @return
+     * @param ids 点位标识列表
+     * @param maxAge 服务端允许使用的缓存年龄，单位毫秒
+     * @param clientName 配置 key，为 null 时使用 primary
+     * @return 点位值列表
      */
     public List<ReadWriteEntity> readFromOpcUa(List<String> ids, double maxAge, String clientName) throws Exception {
-        MiloProperties.Config config = CustomUtil.getConfig(properties, clientName);
-        ReadValuesRunner runner = new ReadValuesRunner(ids, maxAge);
-        OpcUaClient client = connectPool.borrowObject(config);
-        if (client != null) {
-            try {
-                return runner.run(client);
-            } finally {
-                connectPool.returnObject(config, client);
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return withClient(clientName, client -> new ReadValuesRunner(
+                ids, maxAge, properties.getReadBatchSize(), properties.getRequestTimeout()).run(client));
+    }
+
+    /**
+     * 订阅点位变化，默认发布/采样周期为 1000ms。
+     *
+     * @param ids 点位标识列表
+     * @param callback 订阅回调
+     * @return 可关闭的订阅句柄
+     */
+    public SubscriptionHandle subscriptionFromOpcUa(List<String> ids,
+                                                     SubscriptionCallback callback) throws Exception {
+        return subscriptionFromOpcUa(ids, 1000.0, null, callback);
+    }
+
+    /**
+     * 使用指定 endpoint 订阅点位变化。
+     *
+     * @param ids 点位标识列表
+     * @param clientName 配置 key，为 null 时使用 primary
+     * @param callback 订阅回调
+     * @return 可关闭的订阅句柄
+     */
+    public SubscriptionHandle subscriptionFromOpcUa(List<String> ids,
+                                                     String clientName,
+                                                     SubscriptionCallback callback) throws Exception {
+        return subscriptionFromOpcUa(ids, 1000.0, clientName, callback);
+    }
+
+    /**
+     * 订阅点位变化并指定发布周期。
+     *
+     * @param ids 点位标识列表
+     * @param publishingInterval 发布周期，单位毫秒
+     * @param callback 订阅回调
+     * @return 可关闭的订阅句柄
+     */
+    public SubscriptionHandle subscriptionFromOpcUa(List<String> ids,
+                                                     double publishingInterval,
+                                                     SubscriptionCallback callback) throws Exception {
+        return subscriptionFromOpcUa(ids, publishingInterval, null, callback);
+    }
+
+    /**
+     * 使用指定 endpoint 订阅点位变化并指定发布周期。
+     *
+     * @param ids 点位标识列表
+     * @param publishingInterval 发布周期，单位毫秒
+     * @param clientName 配置 key，为 null 时使用 primary
+     * @param callback 订阅回调
+     * @return 可关闭的订阅句柄
+     */
+    public SubscriptionHandle subscriptionFromOpcUa(List<String> ids,
+                                                     double publishingInterval,
+                                                     String clientName,
+                                                     SubscriptionCallback callback) throws Exception {
+        return subscriptions.subscribe(ids, publishingInterval, clientName, callback);
+    }
+
+    /**
+     * 使用独立的发布周期和采样周期注册监控项。
+     *
+     * @param ids 点位标识列表
+     * @param publishingInterval 发布周期，单位毫秒
+     * @param samplingInterval 采样周期，单位毫秒
+     * @param clientName 配置 key，为 null 时使用 primary
+     * @param callback 订阅回调
+     * @return 可关闭的订阅句柄
+     */
+    public SubscriptionHandle subscriptionFromOpcUa(List<String> ids,
+                                                     double publishingInterval,
+                                                     double samplingInterval,
+                                                     String clientName,
+                                                     SubscriptionCallback callback) throws Exception {
+        return subscriptions.subscribe(ids, publishingInterval, samplingInterval, clientName, callback);
+    }
+
+    private void writeConverted(List<ReadWriteEntity> entities,
+                                String clientName,
+                                Function<Object, Object> converter) throws Exception {
+        List<WriteEntity> writes = new ArrayList<>();
+        if (entities != null) {
+            for (ReadWriteEntity entity : entities) {
+                if (entity == null) {
+                    throw new IllegalArgumentException("写入实体不能为空");
+                }
+                writes.add(WriteEntity.builder()
+                        .identifier(entity.getIdentifier())
+                        .variant(new Variant(converter.apply(entity.getValue())))
+                        .build());
             }
         }
-        return new ArrayList<>();
+        writeSpecifyType(writes, clientName);
     }
 
-    /**
-     * 订阅kep点位值
-     *
-     * @param ids 点位id数组
-     * @return
-     */
-    public void subscriptionFromOpcUa(List<String> ids, SubscriptionCallback callback) throws Exception {
-        subscriptionFromOpcUa(ids, 1000.0, callback);
+    private <T> T withClient(String clientName, ClientOperation<T> operation) throws Exception {
+        OpcUaClient client = clients.getClient(clientName);
+        return operation.apply(client);
     }
 
-    /**
-     * 订阅kep点位值
-     *
-     * @param ids        点位id数组
-     * @param clientName 配置key
-     * @return
-     */
-    public void subscriptionFromOpcUa(List<String> ids, String clientName, SubscriptionCallback callback) throws Exception {
-        subscriptionFromOpcUa(ids, 1000.0, clientName, callback);
+    @FunctionalInterface
+    private interface ClientOperation<T> {
+        T apply(OpcUaClient client) throws Exception;
     }
-
-    /**
-     * 订阅kep点位值
-     *
-     * @param ids              点位id数组
-     * @param samplingInterval 订阅时间间隔 默认1000 ms
-     * @return
-     */
-    public void subscriptionFromOpcUa(List<String> ids, double samplingInterval, SubscriptionCallback callback) throws Exception {
-        subscriptionFromOpcUa(ids, samplingInterval, null, callback);
-    }
-
-    /**
-     * 订阅kep点位值
-     *
-     * @param ids              点位id数组
-     * @param samplingInterval 订阅时间间隔 默认1000 ms
-     * @param clientName       配置key
-     * @return
-     */
-    public void subscriptionFromOpcUa(List<String> ids, double samplingInterval, String clientName, SubscriptionCallback callback) throws Exception {
-        MiloProperties.Config config = CustomUtil.getConfig(properties, clientName);
-        SubscriptionRunner runner = new SubscriptionRunner(ids, samplingInterval);
-        OpcUaClient client = connectPool.borrowObject(config);
-        if (client != null) {
-            try {
-                runner.run(client, callback);
-            } finally {
-                connectPool.returnObject(config, client);
-            }
-        }
-    }
-
 }

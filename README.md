@@ -35,6 +35,8 @@ kangaroohy:
       default:
         endpoint: opc.tcp://127.0.0.1:49320
         security-policy: basic256sha256
+        # 可选：none / sign / sign-and-encrypt；不填则使用匹配策略的第一个 Endpoint
+        security-mode: sign-and-encrypt
         username: OPCUA
         password: 123456
       test:
@@ -54,19 +56,34 @@ kangaroohy:
 
 同时配置上 用户名/密码 即可访问服务器
 
-## 连接池
+## 连接
 
-此封装自带了连接池配置，默认会生成3个连接，可配置
+每个配置的 OPC UA endpoint 只维护一个长期客户端连接。读、写和订阅共享该
+客户端；OPC UA 客户端本身支持多路复用，不再使用连接池，也不会为每个点位
+创建连接。
 
-~~~yaml
+批量读取会自动按批次拆分，默认每批 200 个点位，避免超过服务端的
+`MaxNodesPerRead` 或消息大小限制；可按服务端能力调整：
+
+```yaml
 kangaroohy:
   milo:
-    pool:
-      max-idle: 5
-      max-total: 20
-      min-idle: 2
-      initial-size: 3
-~~~
+    read-batch-size: 200
+    write-batch-size: 200
+    subscription-batch-size: 200
+    request-timeout: 5000
+    subscription-queue-size: 10
+    callback-threads: 2
+    callback-queue-capacity: 10000
+```
+
+读写和创建监控项都会按批次拆分。每个批次独立请求；读取时某个批次超时或通信
+失败，该批次的点位返回对应的坏状态码，其余批次仍会继续执行。写入会先完成
+其余批次，最后汇总失败状态并抛出异常。回调线程按点位分配到单线程队列，同一
+点位的回调保持顺序；队列达到容量后会形成背压。
+
+订阅统一通过 `MiloService.subscriptionFromOpcUa(...)` 创建，以复用同一 endpoint
+下的服务端 Subscription 和统一回调线程池。
 
 ## 写
 
@@ -231,7 +248,9 @@ id格式：通道名.设备名.TAG
 
 当点位数值发生改变，则会触发回调，根据回调即可实现相应的逻辑
 
-> 每新增一个订阅都会长期占用一个opc ua连接，不会释放
+> 同一个 endpoint 的订阅会复用客户端连接，并按发布周期复用服务端 Subscription。
+> `subscriptionFromOpcUa` 会立即返回 `SubscriptionHandle`，不再阻塞调用线程；
+> 不需要订阅时调用 `handle.close()` 删除监控项。
 
 ~~~java
 @Component
@@ -250,7 +269,8 @@ public class CustomRunner implements ApplicationRunner {
         List<String> ids = new ArrayList<>();
         ids.add("GA.T1.T1001R");
         ids.add("GA.T1.String");
-        miloService.subscriptionFromOpcUa(ids, (id, value) -> log.info("subscription 点位：{} 订阅到消息：{}", id, value));
+        SubscriptionHandle handle = miloService.subscriptionFromOpcUa(ids,
+                (item, value) -> log.info("subscription 点位：{} 订阅到消息：{}", item.getNodeId(), value));
     }
 }
 ~~~
@@ -275,3 +295,15 @@ public class MiloProvider implements MiloConfigProvider {
     }
 }
 ~~~
+
+## Star History
+
+<p align="center">
+  <a href="https://www.star-history.com/kangaroo1122/milo-spring-boot-starter">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=kangaroo1122/milo-spring-boot-starter&type=date&theme=dark&legend=top-left" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=kangaroo1122/milo-spring-boot-starter&type=date&legend=top-left" />
+      <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=kangaroo1122/milo-spring-boot-starter&type=date&legend=top-left" />
+    </picture>
+  </a>
+</p>

@@ -6,6 +6,7 @@ import com.kangaroohy.milo.exception.EndPointNotFoundException;
 import com.kangaroohy.milo.exception.IdentityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.stack.core.types.builtin.NodeId;
+import org.eclipse.milo.opcua.stack.core.security.SecurityPolicy;
 import org.springframework.util.StringUtils;
 
 import java.net.*;
@@ -22,21 +23,7 @@ public class CustomUtil {
 
     private static final String OPC_UA_NOT_CONFIG = "请配置OPC UA地址信息";
 
-    private static final Map<String, MiloProperties.Config> CONFIG = new LinkedHashMap<>();
-
     private CustomUtil() {
-    }
-
-    public static Map<String, MiloProperties.Config> getConfig() {
-        return CONFIG;
-    }
-
-    public static void putConfig(String key, MiloProperties.Config config) {
-        CONFIG.put(key, config);
-    }
-
-    public static void putAllConfig(Map<String, MiloProperties.Config> config) {
-        CONFIG.putAll(config);
     }
 
     public static String getHostname() {
@@ -103,11 +90,11 @@ public class CustomUtil {
     }
 
     public static void verifyProperties(MiloProperties properties, String primary) {
-        if (getConfig().isEmpty()) {
+        if (properties.getConfig().isEmpty()) {
             throw new EndPointNotFoundException(OPC_UA_NOT_CONFIG);
         }
         if (StringUtils.hasText(primary)) {
-            Set<String> keySet = getConfig().keySet();
+            Set<String> keySet = properties.getConfig().keySet();
             if (!keySet.contains(primary)) {
                 log.warn("The primary property '{}' does not exist in the config, ignore it", primary);
             } else {
@@ -115,22 +102,21 @@ public class CustomUtil {
             }
         }
         if (!StringUtils.hasText(properties.getPrimary())) {
-            Set<String> keySet = getConfig().keySet();
+            Set<String> keySet = properties.getConfig().keySet();
             properties.setPrimary(keySet.stream().findFirst().orElseThrow(() -> new EndPointNotFoundException(OPC_UA_NOT_CONFIG)));
             log.warn("The primary property is '{}'.", properties.getPrimary());
         }
-        getConfig().forEach((key, config) -> {
+        properties.getConfig().forEach((key, config) -> {
+            if (config == null) {
+                throw new EndPointNotFoundException(OPC_UA_NOT_CONFIG + ": " + key);
+            }
             if (!StringUtils.hasText(config.getEndpoint())) {
                 throw new EndPointNotFoundException(OPC_UA_NOT_CONFIG + ": " + key);
+            }
+            if (config.getSecurityPolicy() == null) {
+                config.setSecurityPolicy(SecurityPolicy.None);
             }
         });
     }
 
-    public static MiloProperties.Config getConfig(MiloProperties properties) {
-        return getConfig(properties, null);
-    }
-
-    public static MiloProperties.Config getConfig(MiloProperties properties, String clientName) {
-        return StringUtils.hasText(clientName) ? getConfig().get(clientName) : getConfig().get(properties.getPrimary());
-    }
 }
