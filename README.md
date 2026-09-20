@@ -46,16 +46,6 @@ kangaroohy:
         password: 123456
 ```
 
-特别提醒：
-
-在kepware中，用户名/密码访问时，opcua配置，安全策略中三个策略全部勾选
-
-同时kepware选项属性中的OPC UA配置，不允许匿名访问
-
-此时，security-policy可选值：basic256sha256，basic256，basic128rsa15都可
-
-同时配置上 用户名/密码 即可访问服务器
-
 ## 连接
 
 每个配置的 OPC UA endpoint 只维护一个长期客户端连接。读、写和订阅共享该
@@ -295,6 +285,121 @@ public class MiloProvider implements MiloConfigProvider {
     }
 }
 ~~~
+
+## Milo 连接 KepServer 注意事项
+
+### Endpoint 与安全配置
+
+KepServer Endpoint 配置示例：
+
+```yaml
+kangaroohy:
+  milo:
+    primary: kepserver
+    config:
+      kepserver:
+        endpoint: opc.tcp://192.168.68.68:49320
+        security-policy: basic256
+        security-mode: sign-and-encrypt
+        username: OPCUA
+        password: 123456
+```
+
+`security-policy` 必须是 KepServer Endpoint 已启用的安全策略，
+`security-mode` 必须是该策略支持的消息安全模式：
+
+| KepServer 配置 | Milo 配置 |
+| --- | --- |
+| None | `security-policy: none`、`security-mode: none` |
+| Basic128Rsa15 + 签名 | `basic128rsa15`、`sign` |
+| Basic128Rsa15 + 签名与加密 | `basic128rsa15`、`sign-and-encrypt` |
+| Basic256 + 签名 | `basic256`、`sign` |
+| Basic256 + 签名与加密 | `basic256`、`sign-and-encrypt` |
+| Basic256Sha256 + 签名与加密 | `basic256sha256`、`sign-and-encrypt` |
+
+不配置 `security-mode` 时，会在相同 `security-policy` 的 Endpoint 中选择第一个，
+生产环境建议明确配置，避免 KepServer 同时开放 `Sign` 和 `SignAndEncrypt` 时选错。
+`Basic128Rsa15` 和 `Basic256` 已属于兼容性安全策略；如果 KepServer 版本支持，
+优先使用 `Basic256Sha256 + SignAndEncrypt`。`None + None` 不建议在生产环境使用。
+
+用户名/密码与安全策略是两个不同层面的配置。KepServer 禁止匿名访问时必须配置
+`username` 和 `password`；允许匿名访问时可以不配置。如果 `None + None` 可以连接，
+但安全 Endpoint 无法连接，应优先检查证书，而不是账号密码。
+
+### 双向证书信任
+
+使用非 `None` 安全策略时，Milo 和 KepServer 必须互相信任证书。Milo 首次连接会在
+当前 Java 进程的用户目录下生成：
+
+```text
+~/.milo-security/milo-client.pfx
+~/.milo-security/pki/
+```
+
+先发起一次连接，再打开 KepServer 的 **OPC UA Configuration Manager → 受信任的客户端**。
+找到 URI 为 `urn:kangaroohy:milo:client` 的 `Milo Client`：如果图标带红叉，说明
+证书只是被 KepServer 发现但仍处于拒绝状态，需要选中它并点击“信任”。保存后按照
+KepServer 窗口底部提示重新初始化 Server Runtime。
+
+KepServer 服务端证书第一次通常会进入 Milo 的拒绝目录：
+
+```text
+~/.milo-security/pki/rejected/
+```
+
+确认它确实是目标 KepServer 的证书后，将 `.der` 证书移动到：
+
+```text
+~/.milo-security/pki/trusted/certs/
+```
+
+然后重启应用。若应用由 Docker、systemd、IDE 或其他系统用户启动，`~` 指向的是
+该 Java 进程的 `user.home`，不一定是当前登录用户目录。可根据启动日志中的
+`security temp dir` 确认实际证书目录。同名证书也可能是旧证书，应通过指纹确认，
+不要只比较证书名称或 URI。
+
+### 内网穿透和域名代理
+
+通过内网穿透访问时，`endpoint` 填写客户端实际可达的公网域名和端口，例如：
+
+```yaml
+endpoint: opc.tcp://opc.example.com:149320
+security-policy: basic256
+security-mode: sign-and-encrypt
+```
+
+KepServer 的 GetEndpoints 响应可能仍返回内网 IP。组件会先按安全策略和可选的安全
+模式选择 Endpoint，再将返回地址改写为配置中的域名和端口，因此不会仅因域名与
+内网 IP 不一致而过滤失败。
+
+### 点位与订阅地址
+
+简写点位地址时，组件默认按 namespace 2 解析：
+
+```text
+通道名.设备名.TAG名
+```
+
+等价于：
+
+```text
+ns=2;s=通道名.设备名.TAG名
+```
+
+如果 KepServer 中点位不属于 namespace 2，必须传完整 NodeId，例如
+`ns=3;s=Channel1.Device1.Tag1`。订阅地址不存在时，连接和证书仍可能完全正常，
+但监控项创建会返回坏状态码。建议先通过 UaExpert 或 `browseRoot`、`browseNode`
+确认实际 NodeId，再用于读取、写入和订阅。
+
+常见错误可按下面顺序排查：
+
+| 错误或现象 | 优先检查 |
+| --- | --- |
+| 找不到期望的 Endpoint | `security-policy`、`security-mode` 是否在 KepServer 中启用 |
+| `Bad_SecurityChecksFailed` | KepServer 是否真正信任客户端证书，红叉是否消失 |
+| `Bad_CertificateUntrusted` | KepServer 服务端证书是否放入 Milo 的 trusted 目录 |
+| `Bad_UserAccessDenied` | KepServer 用户名、密码和匿名访问设置 |
+| 连接成功但订阅失败 | NodeId、namespace、通道/设备/TAG 名称是否真实存在 |
 
 ## Star History
 
