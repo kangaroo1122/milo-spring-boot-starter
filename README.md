@@ -6,15 +6,29 @@ milo 封装工具包，yml配置OPC UA地址，是否匿名等信息，即可连
 
 [![Maven Central](https://img.shields.io/maven-central/v/com.kangaroohy/milo-spring-boot-starter.svg)](https://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22com.kangaroohy%22%20AND%20a%3A%milo-spring-boot-starter%22)
 
-首次版本发布，适配 spring boot 3.x，也可在spring boot 2.x中使用
+项目同时维护 JDK 8 和 JDK 17 两条版本线，请根据运行环境选择 Starter 版本。
+
+### 版本兼容范围
+
+| Starter 版本 | Java 版本 | Eclipse Milo | Spring Boot 支持范围 |
+| --- | --- | --- | --- |
+| 3.x | 8 及以上 | 0.6.x | 2.x、3.x、4.x：`[2.0.0, 5.0.0)` |
+| 4.x | 17 及以上 | 1.1.x | 3.x、4.x：`[3.0.0, 5.0.0)` |
+
+Starter 4.x 使用 Spring Boot 3.0.0 作为最低编译基线，并已在 Spring Boot 3.0.0、
+4.1.1 上完成自动配置运行验证。Starter 3.x 虽然使用 Java 8 编译，但实际运行时的
+Java 版本仍需满足所选 Spring Boot 版本自身的要求。
 
 ~~~
 <dependency>
     <groupId>com.kangaroohy</groupId>
     <artifactId>milo-spring-boot-starter</artifactId>
-    <version>${lastVersion}</version>
+    <!-- JDK 17 / Spring Boot 3.x、4.x -->
+    <version>4.0.0.1.1.7</version>
 </dependency>
 ~~~
+
+JDK 8 或 Spring Boot 2.x 项目请继续使用 `3.2.0.0.6.16`。
 
 ## 配置
 ```yaml
