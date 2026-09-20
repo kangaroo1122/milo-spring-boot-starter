@@ -24,7 +24,7 @@ Java 版本仍需满足所选 Spring Boot 版本自身的要求。
     <groupId>com.kangaroohy</groupId>
     <artifactId>milo-spring-boot-starter</artifactId>
     <!-- JDK 17 / Spring Boot 3.x、4.x -->
-    <version>4.0.0.1.1.7</version>
+    <version>${4.x版本}</version>
 </dependency>
 ~~~
 
