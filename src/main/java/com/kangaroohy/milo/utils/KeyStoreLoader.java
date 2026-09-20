@@ -1,12 +1,12 @@
 package com.kangaroohy.milo.utils;
 
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.milo.opcua.stack.client.security.DefaultClientCertificateValidator;
-import org.eclipse.milo.opcua.stack.core.security.DefaultTrustListManager;
+import org.eclipse.milo.opcua.stack.core.security.DefaultClientCertificateValidator;
+import org.eclipse.milo.opcua.stack.core.security.FileBasedCertificateQuarantine;
+import org.eclipse.milo.opcua.stack.core.security.FileBasedTrustListManager;
 import org.eclipse.milo.opcua.stack.core.util.SelfSignedCertificateBuilder;
 import org.eclipse.milo.opcua.stack.core.util.SelfSignedCertificateGenerator;
 
-import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -29,6 +29,7 @@ public class KeyStoreLoader {
     private static X509Certificate[] clientCertificateChain;
     private static KeyPair clientKeyPair;
     private static DefaultClientCertificateValidator certificateValidator;
+    private static FileBasedTrustListManager trustListManager;
 
     private static boolean isLoaded = false;
 
@@ -45,17 +46,13 @@ public class KeyStoreLoader {
             throw new Exception("unable to create security dir: " + SECURITY_TEMP_DIR);
         }
 
-        File pkiDir = SECURITY_TEMP_DIR.resolve("pki").toFile();
+        Path pkiDir = SECURITY_TEMP_DIR.resolve("pki");
 
         log.info("security temp dir: {}", SECURITY_TEMP_DIR.toAbsolutePath());
 
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
 
         Path serverKeyStore = SECURITY_TEMP_DIR.resolve("milo-client.pfx");
-
-        DefaultTrustListManager trustListManager = new DefaultTrustListManager(pkiDir);
-
-        certificateValidator = new DefaultClientCertificateValidator(trustListManager);
 
         log.info("Loading KeyStore at {}", serverKeyStore);
 
@@ -97,16 +94,25 @@ public class KeyStoreLoader {
         }
 
         Key clientPrivateKey = keyStore.getKey(CLIENT_ALIAS, PASSWORD);
-        if (clientPrivateKey instanceof PrivateKey) {
-            clientCertificate = (X509Certificate) keyStore.getCertificate(CLIENT_ALIAS);
-
-            clientCertificateChain = Arrays.stream(keyStore.getCertificateChain(CLIENT_ALIAS))
-                    .map(X509Certificate.class::cast)
-                    .toArray(X509Certificate[]::new);
-
-            PublicKey clientPublicKey = clientCertificate.getPublicKey();
-            clientKeyPair = new KeyPair(clientPublicKey, (PrivateKey) clientPrivateKey);
+        if (!(clientPrivateKey instanceof PrivateKey)) {
+            throw new KeyStoreException("OPC UA client private key is missing: " + CLIENT_ALIAS);
         }
+        clientCertificate = (X509Certificate) keyStore.getCertificate(CLIENT_ALIAS);
+        java.security.cert.Certificate[] certificateChain = keyStore.getCertificateChain(CLIENT_ALIAS);
+        if (clientCertificate == null || certificateChain == null || certificateChain.length == 0) {
+            throw new KeyStoreException("OPC UA client certificate chain is missing: " + CLIENT_ALIAS);
+        }
+        clientCertificateChain = Arrays.stream(certificateChain)
+                .map(X509Certificate.class::cast)
+                .toArray(X509Certificate[]::new);
+        PublicKey clientPublicKey = clientCertificate.getPublicKey();
+        clientKeyPair = new KeyPair(clientPublicKey, (PrivateKey) clientPrivateKey);
+
+        trustListManager = FileBasedTrustListManager.createAndInitialize(pkiDir);
+        FileBasedCertificateQuarantine certificateQuarantine =
+                FileBasedCertificateQuarantine.create(pkiDir.resolve("rejected"));
+        certificateValidator = new DefaultClientCertificateValidator(
+                trustListManager, certificateQuarantine);
 
         isLoaded = true;
     }
@@ -125,6 +131,23 @@ public class KeyStoreLoader {
 
     public static KeyPair getClientKeyPair() {
         return clientKeyPair;
+    }
+
+    /** 关闭证书目录监听器，供应用停止时释放资源。 */
+    public static synchronized void close() {
+        if (trustListManager != null) {
+            try {
+                trustListManager.close();
+            } catch (Exception e) {
+                log.debug("Failed to close OPC UA trust list manager", e);
+            }
+        }
+        trustListManager = null;
+        certificateValidator = null;
+        clientCertificate = null;
+        clientCertificateChain = null;
+        clientKeyPair = null;
+        isLoaded = false;
     }
 
 }

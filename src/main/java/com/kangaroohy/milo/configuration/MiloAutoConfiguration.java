@@ -5,12 +5,12 @@ import com.kangaroohy.milo.service.MiloConfigProvider;
 import com.kangaroohy.milo.service.MiloService;
 import com.kangaroohy.milo.service.MiloSubscriptionManager;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 import java.util.Optional;
 
@@ -26,7 +26,7 @@ import java.util.Optional;
  * @desc milo-spring-boot-starter
  * @since 0.0.1
  */
-@Configuration
+@AutoConfiguration
 @EnableConfigurationProperties(MiloProperties.class)
 @ConditionalOnClass(MiloService.class)
 @ConditionalOnProperty(prefix = MiloProperties.PREFIX, value = "enabled", havingValue = "true", matchIfMissing = true)

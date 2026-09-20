@@ -115,7 +115,7 @@ public class ReadValuesRunner {
         }
 
         try {
-            ReadResponse response = client.read(maxAge, TimestampsToReturn.Both, readValueIds)
+            ReadResponse response = client.readAsync(maxAge, TimestampsToReturn.Both, readValueIds)
                     .get(requestTimeout, TimeUnit.MILLISECONDS);
             DataValue[] results = response == null ? null : response.getResults();
             return results == null ? failureValues(batchIdentifiers.size(), StatusCodes.Bad_CommunicationError) : results;

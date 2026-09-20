@@ -3,6 +3,7 @@ package com.kangaroohy.milo.service;
 import com.kangaroohy.milo.configuration.MiloProperties;
 import com.kangaroohy.milo.exception.EndPointNotFoundException;
 import com.kangaroohy.milo.pool.MiloConnectFactory;
+import com.kangaroohy.milo.utils.KeyStoreLoader;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.springframework.util.StringUtils;
 
@@ -104,11 +105,12 @@ public class MiloClientManager implements AutoCloseable {
         }
         clients.forEach((key, client) -> {
             try {
-                client.disconnect().get(properties.getRequestTimeout(), TimeUnit.MILLISECONDS);
+                client.disconnectAsync().get(properties.getRequestTimeout(), TimeUnit.MILLISECONDS);
             } catch (Exception ignored) {
                 // Best effort during application shutdown.
             }
         });
         clients.clear();
+        KeyStoreLoader.close();
     }
 }

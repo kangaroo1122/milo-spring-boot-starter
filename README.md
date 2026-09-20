@@ -6,13 +6,25 @@ milo 封装工具包，yml配置OPC UA地址，是否匿名等信息，即可连
 
 [![Maven Central](https://img.shields.io/maven-central/v/com.kangaroohy/milo-spring-boot-starter.svg)](https://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22com.kangaroohy%22%20AND%20a%3A%milo-spring-boot-starter%22)
 
-首次版本发布，适配 spring boot 3.x，也可在spring boot 2.x中使用
+当前 4.x 主线基于 Java 17 和 Eclipse Milo 1.1.7；Spring Boot 2.x 项目继续使用
+Starter 3.x。
+
+### 版本兼容范围
+
+| Starter 版本 | Spring Boot 支持范围 |
+| --- | --- |
+| 3.x | 2.x、3.x、4.x：`[2.0.0, 5.0.0)` |
+| 4.x | 3.x、4.x：`[3.0.0, 5.0.0)` |
+
+Starter 4.x 最低要求 Java 17，使用 Spring Boot 3.0.0 作为最低编译基线，目前已在
+Spring Boot 3.0.0、4.1.1 上完成自动配置运行验证。Starter 3.x 仍使用 Java 8 和
+Milo 0.6.x；实际 Java 版本还需满足所选 Spring Boot 版本自身的要求。
 
 ~~~
 <dependency>
     <groupId>com.kangaroohy</groupId>
     <artifactId>milo-spring-boot-starter</artifactId>
-    <version>${lastVersion}</version>
+    <version>${4.x版本}</version>
 </dependency>
 ~~~
 
@@ -260,7 +272,8 @@ public class CustomRunner implements ApplicationRunner {
         ids.add("GA.T1.T1001R");
         ids.add("GA.T1.String");
         SubscriptionHandle handle = miloService.subscriptionFromOpcUa(ids,
-                (item, value) -> log.info("subscription 点位：{} 订阅到消息：{}", item.getNodeId(), value));
+                (item, value) -> log.info("subscription 点位：{} 订阅到消息：{}",
+                        item.getReadValueId().getNodeId(), value));
     }
 }
 ~~~

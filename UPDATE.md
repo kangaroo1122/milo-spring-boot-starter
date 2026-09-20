@@ -1,3 +1,12 @@
+## 4.0.0.1.1.7
+
+- 最低运行环境升级为 Java 17，同时适配 Spring Boot 3.x、4.x，不再支持 Spring Boot 2.x。
+- Eclipse Milo 升级到 1.1.7，依赖切换为 `milo-sdk-client`。
+- 订阅实现迁移到 Milo 1.x 的 `OpcUaSubscription`、`OpcUaMonitoredItem` API，继续复用 endpoint 连接和服务端 Subscription。
+- 证书信任列表迁移到 Milo 1.x 文件式信任列表和拒绝证书隔离区。
+- 读写调用、身份认证、浏览 API 和 Spring Boot 自动配置注册方式同步升级。
+- `SubscriptionCallback` 的监控项参数由 `ManagedDataItem` 改为 `OpcUaMonitoredItem`。⚠️具有破坏性。
+
 ## 3.2.0.0.6.16
 
 - 升级 Eclipse Milo 到 0.6.16。

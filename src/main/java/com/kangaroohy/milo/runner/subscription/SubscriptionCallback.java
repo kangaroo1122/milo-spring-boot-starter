@@ -1,6 +1,6 @@
 package com.kangaroohy.milo.runner.subscription;
 
-import org.eclipse.milo.opcua.sdk.client.subscriptions.ManagedDataItem;
+import org.eclipse.milo.opcua.sdk.client.subscriptions.OpcUaMonitoredItem;
 import org.eclipse.milo.opcua.stack.core.types.builtin.DataValue;
 
 /**
@@ -21,5 +21,5 @@ public interface SubscriptionCallback {
      * @param dataItem 发生变化的监控项
      * @param value 最新数据值
      */
-    void onSubscribe(ManagedDataItem dataItem, DataValue value);
+    void onSubscribe(OpcUaMonitoredItem dataItem, DataValue value);
 }

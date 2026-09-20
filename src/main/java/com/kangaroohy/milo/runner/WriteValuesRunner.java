@@ -75,7 +75,7 @@ public class WriteValuesRunner {
 
             List<StatusCode> statusCodes;
             try {
-                statusCodes = opcUaClient.writeValues(nodeIds, dataValues)
+                statusCodes = opcUaClient.writeValuesAsync(nodeIds, dataValues)
                         .get(requestTimeout, TimeUnit.MILLISECONDS);
             } catch (TimeoutException e) {
                 log.warn("OPC UA 批量写入超时，点位数: {}", batch.size());

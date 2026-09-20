@@ -6,19 +6,16 @@ import com.kangaroohy.milo.runner.subscription.SubscriptionHandle;
 import com.kangaroohy.milo.utils.CustomUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
-import org.eclipse.milo.opcua.sdk.client.api.subscriptions.UaSubscription;
-import org.eclipse.milo.opcua.sdk.client.api.subscriptions.UaSubscriptionManager;
-import org.eclipse.milo.opcua.sdk.client.subscriptions.ManagedDataItem;
-import org.eclipse.milo.opcua.sdk.client.subscriptions.ManagedSubscription;
+import org.eclipse.milo.opcua.sdk.client.subscriptions.OpcUaMonitoredItem;
+import org.eclipse.milo.opcua.sdk.client.subscriptions.OpcUaSubscription;
 import org.eclipse.milo.opcua.stack.core.types.builtin.DataValue;
-import org.eclipse.milo.opcua.stack.core.types.builtin.NodeId;
 import org.eclipse.milo.opcua.stack.core.types.builtin.StatusCode;
-import org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.UInteger;
+import org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,12 +26,11 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 
 /**
- * Groups monitored items by endpoint and publishing interval.  A single
- * client can therefore serve many business subscriptions, and a single
- * server-side Subscription can serve many monitored items.
+ * Groups monitored items by endpoint and publishing interval. A single client
+ * can therefore serve many business subscriptions, and a single server-side
+ * Subscription can serve many monitored items.
  */
 @Slf4j
 public class MiloSubscriptionManager implements AutoCloseable {
@@ -64,11 +60,11 @@ public class MiloSubscriptionManager implements AutoCloseable {
     }
 
     private MiloSubscriptionManager(MiloClientManager clients,
-                                     Executor callbackExecutor,
-                                     int subscriptionBatchSize,
-                                     int subscriptionQueueSize,
-                                     int callbackThreads,
-                                     int callbackQueueCapacity) {
+                                    Executor callbackExecutor,
+                                    int subscriptionBatchSize,
+                                    int subscriptionQueueSize,
+                                    int callbackThreads,
+                                    int callbackQueueCapacity) {
         this.clients = clients;
         if (subscriptionBatchSize <= 0 || subscriptionQueueSize <= 0) {
             throw new IllegalArgumentException("订阅批次大小和队列大小必须大于 0");
@@ -195,93 +191,94 @@ public class MiloSubscriptionManager implements AutoCloseable {
         private final Map<String, ItemRegistration> items = new LinkedHashMap<>();
         private final AtomicBoolean closed = new AtomicBoolean();
         private final AtomicBoolean rebuilding = new AtomicBoolean();
-        private final UaSubscriptionManager.SubscriptionListener subscriptionListener = new SubscriptionListener();
-        private volatile ManagedSubscription subscription;
+        private final OpcUaSubscription.SubscriptionListener subscriptionListener = new SubscriptionListener();
+        private volatile OpcUaSubscription subscription;
 
         private SubscriptionContext(SubscriptionKey key, OpcUaClient client) {
             this.key = key;
             this.client = client;
-            client.getSubscriptionManager().addSubscriptionListener(subscriptionListener);
         }
 
         private synchronized SubscriptionHandle add(List<String> identifiers,
                                                      SubscriptionCallback callback) throws Exception {
             ensureOpen();
             ensureSubscription();
-            List<ItemRegistration> registrations = new ArrayList<>();
-            List<ManagedDataItem> createdDataItems = Collections.emptyList();
+
+            LinkedHashSet<String> uniqueIdentifiers = new LinkedHashSet<>(identifiers);
+            List<ItemRegistration> registrations = new ArrayList<>(uniqueIdentifiers.size());
+            List<ItemRegistration> newRegistrations = new ArrayList<>();
             try {
-                LinkedHashSet<String> uniqueIdentifiers = new LinkedHashSet<>(identifiers);
-                List<String> newIdentifiers = new ArrayList<>();
                 for (String identifier : uniqueIdentifiers) {
                     if (identifier == null || identifier.trim().isEmpty()) {
                         throw new IllegalArgumentException("NodeId 不能为空");
                     }
-                    if (!items.containsKey(identifier)) {
-                        newIdentifiers.add(identifier);
-                    }
-                }
-
-                if (!newIdentifiers.isEmpty()) {
-                    List<ManagedDataItem> dataItems = createDataItems(subscription, newIdentifiers);
-                    createdDataItems = dataItems;
-                    for (int i = 0; i < newIdentifiers.size(); i++) {
-                        String identifier = newIdentifiers.get(i);
-                        ManagedDataItem item = dataItems.get(i);
-                        ItemRegistration registration = new ItemRegistration(identifier, item);
-                        items.put(identifier, registration);
-                        registrations.add(registration);
-                        registration.listener = attachListener(registration, item);
-                    }
-                }
-
-                for (String identifier : uniqueIdentifiers) {
                     ItemRegistration registration = items.get(identifier);
-                    registration.callbacks.add(callback);
-                    if (!registrations.contains(registration)) {
-                        registrations.add(registration);
+                    if (registration == null) {
+                        OpcUaMonitoredItem item = OpcUaMonitoredItem.newDataItem(
+                                CustomUtil.parseNodeId(identifier));
+                        item.setSamplingInterval(key.samplingInterval);
+                        item.setQueueSize(Unsigned.uint(subscriptionQueueSize));
+                        item.setDiscardOldest(true);
+                        registration = new ItemRegistration(identifier, item);
+                        attachListener(registration);
+                        items.put(identifier, registration);
+                        newRegistrations.add(registration);
                     }
+                    registration.callbacks.add(callback);
+                    registrations.add(registration);
+                }
+
+                if (!newRegistrations.isEmpty()) {
+                    createDataItems(subscription, newRegistrations);
                 }
             } catch (Exception e) {
-                remove(registrations, callback);
-                deleteUntrackedItems(createdDataItems);
+                rollbackAdd(registrations, newRegistrations, callback, e);
                 throw e;
             }
-            return () -> remove(registrations, callback);
+
+            AtomicBoolean handleClosed = new AtomicBoolean();
+            return () -> {
+                if (handleClosed.compareAndSet(false, true)) {
+                    remove(registrations, callback);
+                }
+            };
         }
 
-        private void deleteUntrackedItems(List<ManagedDataItem> candidates) {
-            if (candidates == null || candidates.isEmpty()) {
-                return;
+        private void rollbackAdd(List<ItemRegistration> registrations,
+                                 List<ItemRegistration> newRegistrations,
+                                 SubscriptionCallback callback,
+                                 Exception original) {
+            for (ItemRegistration registration : registrations) {
+                registration.callbacks.remove(callback);
             }
-            for (ManagedDataItem candidate : candidates) {
-                boolean tracked = false;
-                for (ItemRegistration registration : items.values()) {
-                    if (registration.item == candidate) {
-                        tracked = true;
-                        break;
-                    }
+            for (ItemRegistration registration : newRegistrations) {
+                items.remove(registration.identifier, registration);
+                registration.generation++;
+                registration.item.setDataValueListener(null);
+            }
+            if (!newRegistrations.isEmpty()) {
+                try {
+                    removeDataItems(subscription, newRegistrations);
+                } catch (Exception cleanupException) {
+                    original.addSuppressed(cleanupException);
                 }
-                if (!tracked) {
-                    try {
-                        candidate.delete();
-                    } catch (Exception cleanupException) {
-                        log.debug("Failed to clean up untracked monitored item", cleanupException);
-                    }
-                }
+            }
+            if (items.isEmpty()) {
+                close();
             }
         }
 
-        private ManagedDataItem.DataValueListener attachListener(ItemRegistration registration,
-                                                                  ManagedDataItem item) {
+        private void attachListener(ItemRegistration registration) {
             long itemGeneration = registration.generation;
-            Consumer<DataValue> consumer = value -> callbackExecutorFor(registration.identifier)
-                    .execute(() -> dispatch(registration, item, itemGeneration, value));
-            return item.addDataValueListener(consumer);
+            registration.item.setDataValueListener((item, value) ->
+                    callbackExecutorFor(registration.identifier)
+                            .execute(() -> dispatch(registration, item, itemGeneration, value)));
         }
 
-        private void dispatch(ItemRegistration registration, ManagedDataItem source,
-                              long expectedGeneration, DataValue value) {
+        private void dispatch(ItemRegistration registration,
+                              OpcUaMonitoredItem source,
+                              long expectedGeneration,
+                              DataValue value) {
             if (closed.get() || registration.item != source
                     || expectedGeneration != registration.generation) {
                 return;
@@ -304,127 +301,78 @@ public class MiloSubscriptionManager implements AutoCloseable {
             if (closed.get()) {
                 return;
             }
+            List<ItemRegistration> removed = new ArrayList<>();
             for (ItemRegistration registration : registrations) {
                 registration.callbacks.remove(callback);
-                if (registration.callbacks.isEmpty() && items.remove(registration.identifier, registration)) {
+                if (registration.callbacks.isEmpty()
+                        && items.remove(registration.identifier, registration)) {
                     registration.generation++;
-                    try {
-                        registration.item.delete();
-                    } catch (Exception e) {
-                        log.debug("Failed to delete monitored item {}", registration.identifier, e);
-                    }
+                    registration.item.setDataValueListener(null);
+                    removed.add(registration);
                 }
             }
             if (items.isEmpty()) {
                 close();
+            } else if (!removed.isEmpty()) {
+                try {
+                    removeDataItems(subscription, removed);
+                } catch (Exception e) {
+                    log.warn("Failed to delete OPC UA monitored items for {}", key, e);
+                }
             }
         }
 
         private void ensureSubscription() throws Exception {
-            if (subscription != null) {
-                return;
+            if (subscription == null) {
+                OpcUaSubscription created = new OpcUaSubscription(client, key.publishingInterval);
+                created.setMaxMonitoredItemsPerCall(Unsigned.uint(subscriptionBatchSize));
+                created.setSubscriptionListener(subscriptionListener);
+                created.create();
+                subscription = created;
+            } else if (subscription.getSyncState() == OpcUaSubscription.SyncState.INITIAL) {
+                subscription.create();
+                subscription.synchronizeMonitoredItems();
             }
-            subscription = ManagedSubscription.create(client, key.publishingInterval);
-            subscription.setDefaultSamplingInterval(key.samplingInterval);
-            subscription.setDefaultQueueSize(UInteger.valueOf(subscriptionQueueSize));
         }
 
-        private void recreateAfterTransferFailure() {
+        private void recreateAfterTransferFailure(OpcUaSubscription failedSubscription) {
             if (closed.get() || !rebuilding.compareAndSet(false, true)) {
                 return;
             }
-            ManagedSubscription replacement = null;
             try {
                 synchronized (this) {
-                    if (closed.get() || items.isEmpty()) {
+                    if (closed.get() || items.isEmpty() || subscription != failedSubscription) {
                         return;
                     }
-                    ManagedSubscription old = subscription;
-                    replacement = ManagedSubscription.create(client, key.publishingInterval);
-                    replacement.setDefaultSamplingInterval(key.samplingInterval);
-                    replacement.setDefaultQueueSize(UInteger.valueOf(subscriptionQueueSize));
-
-                    List<String> identifiers = new ArrayList<>(items.keySet());
-                    List<ManagedDataItem> dataItems = createDataItems(replacement, identifiers);
-                    if (dataItems.size() != identifiers.size()) {
-                        throw new IllegalStateException("OPC UA 返回的监控项数量与请求不一致");
+                    if (failedSubscription.getSyncState() != OpcUaSubscription.SyncState.INITIAL) {
+                        return;
                     }
-                    List<ManagedDataItem.DataValueListener> replacementListeners = new ArrayList<>(dataItems.size());
-                    try {
-                        for (int i = 0; i < dataItems.size(); i++) {
-                            ItemRegistration registration = items.get(identifiers.get(i));
-                            // Advance the item generation before registering the
-                            // replacement listener so new notifications capture
-                            // the new generation rather than the stale one.
-                            registration.generation++;
-                            replacementListeners.add(attachListener(registration, dataItems.get(i)));
-                        }
-                    } catch (Exception listenerException) {
-                        for (int i = 0; i < replacementListeners.size(); i++) {
-                            dataItems.get(i).removeDataValueListener(replacementListeners.get(i));
-                        }
-                        throw listenerException;
-                    }
-
-                    for (int i = 0; i < dataItems.size(); i++) {
-                        ItemRegistration registration = items.get(identifiers.get(i));
-                        if (registration.listener != null) {
-                            registration.item.removeDataValueListener(registration.listener);
-                        }
-                        registration.item = dataItems.get(i);
-                        registration.listener = replacementListeners.get(i);
-                    }
-                    subscription = replacement;
-                    if (old != null) {
-                        try {
-                            old.delete();
-                        } catch (Exception e) {
-                            log.debug("Failed to delete transferred subscription", e);
-                        }
-                    }
+                    failedSubscription.create();
+                    failedSubscription.synchronizeMonitoredItems();
                 }
             } catch (Exception e) {
-                try {
-                    if (replacement != null) {
-                        replacement.delete();
-                    }
-                } catch (Exception ignored) {
-                    // Preserve the original subscription error.
-                }
                 log.error("Failed to recreate OPC UA subscription for {}", key, e);
             } finally {
                 rebuilding.set(false);
             }
         }
 
-        private List<ManagedDataItem> createDataItems(ManagedSubscription target,
-                                                      List<String> identifiers) throws Exception {
-            List<ManagedDataItem> created = new ArrayList<>();
+        private void createDataItems(OpcUaSubscription target,
+                                     List<ItemRegistration> registrations) throws Exception {
+            List<OpcUaMonitoredItem> dataItems = monitoredItems(registrations);
+            target.addMonitoredItems(dataItems);
             try {
-                for (int start = 0; start < identifiers.size(); start += subscriptionBatchSize) {
-                    int end = Math.min(start + subscriptionBatchSize, identifiers.size());
-                    List<NodeId> nodeIds = new ArrayList<>(end - start);
-                    for (String identifier : identifiers.subList(start, end)) {
-                        nodeIds.add(CustomUtil.parseNodeId(identifier));
-                    }
-                    List<ManagedDataItem> batch = target.createDataItems(nodeIds);
-                    if (batch.size() != nodeIds.size()) {
-                        throw new IllegalStateException("OPC UA 返回的监控项数量与请求数量不一致");
-                    }
-                    created.addAll(batch);
-                    for (ManagedDataItem item : batch) {
-                        StatusCode itemStatus = item.getStatusCode();
-                        if (itemStatus == null || !itemStatus.isGood()) {
-                            throw new IllegalStateException("OPC UA 监控项创建失败: " + itemStatus);
-                        }
+                target.synchronizeMonitoredItems();
+                for (OpcUaMonitoredItem item : dataItems) {
+                    StatusCode itemStatus = item.getCreateResult().orElse(null);
+                    if (itemStatus == null || !itemStatus.isGood()) {
+                        throw new IllegalStateException("OPC UA 监控项创建失败: " + itemStatus);
                     }
                 }
-                return created;
             } catch (Exception e) {
                 try {
-                    if (!created.isEmpty()) {
-                        target.deleteDataItems(created);
-                    }
+                    target.removeMonitoredItems(dataItems);
+                    target.synchronizeMonitoredItems();
                 } catch (Exception cleanupException) {
                     e.addSuppressed(cleanupException);
                 }
@@ -432,10 +380,25 @@ public class MiloSubscriptionManager implements AutoCloseable {
             }
         }
 
+        private void removeDataItems(OpcUaSubscription target,
+                                     List<ItemRegistration> registrations) throws Exception {
+            target.removeMonitoredItems(monitoredItems(registrations));
+            target.synchronizeMonitoredItems();
+        }
+
+        private List<OpcUaMonitoredItem> monitoredItems(List<ItemRegistration> registrations) {
+            List<OpcUaMonitoredItem> dataItems = new ArrayList<>(registrations.size());
+            for (ItemRegistration registration : registrations) {
+                dataItems.add(registration.item);
+            }
+            return dataItems;
+        }
+
         private void deleteSubscription() {
-            ManagedSubscription current = subscription;
+            OpcUaSubscription current = subscription;
             subscription = null;
             if (current != null) {
+                current.setSubscriptionListener(null);
                 try {
                     current.delete();
                 } catch (Exception e) {
@@ -455,25 +418,23 @@ public class MiloSubscriptionManager implements AutoCloseable {
             if (!closed.compareAndSet(false, true)) {
                 return;
             }
-            client.getSubscriptionManager().removeSubscriptionListener(subscriptionListener);
             for (ItemRegistration registration : items.values()) {
                 registration.generation++;
                 registration.callbacks.clear();
+                registration.item.setDataValueListener(null);
             }
             items.clear();
             deleteSubscription();
             contexts.remove(key, this);
         }
 
-        private final class SubscriptionListener implements UaSubscriptionManager.SubscriptionListener {
+        private final class SubscriptionListener implements OpcUaSubscription.SubscriptionListener {
             @Override
-            public void onSubscriptionTransferFailed(UaSubscription failedSubscription, StatusCode statusCode) {
-                ManagedSubscription current = SubscriptionContext.this.subscription;
-                if (failedSubscription != null && current != null && current.getSubscription() != null
-                        && current.getSubscription().getSubscriptionId() != null
-                        && current.getSubscription().getSubscriptionId().equals(failedSubscription.getSubscriptionId())) {
+            public void onTransferFailed(OpcUaSubscription failedSubscription, StatusCode statusCode) {
+                if (failedSubscription == subscription) {
                     try {
-                        managementExecutor.execute(SubscriptionContext.this::recreateAfterTransferFailure);
+                        managementExecutor.execute(
+                                () -> recreateAfterTransferFailure(failedSubscription));
                     } catch (java.util.concurrent.RejectedExecutionException ignored) {
                         // Application is shutting down.
                     }
@@ -485,11 +446,10 @@ public class MiloSubscriptionManager implements AutoCloseable {
     private static final class ItemRegistration {
         private final String identifier;
         private final CopyOnWriteArrayList<SubscriptionCallback> callbacks = new CopyOnWriteArrayList<>();
-        private volatile ManagedDataItem item;
-        private ManagedDataItem.DataValueListener listener;
+        private final OpcUaMonitoredItem item;
         private volatile long generation;
 
-        private ItemRegistration(String identifier, ManagedDataItem item) {
+        private ItemRegistration(String identifier, OpcUaMonitoredItem item) {
             this.identifier = identifier;
             this.item = item;
         }

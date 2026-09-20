@@ -2,7 +2,7 @@ package com.kangaroohy.milo.runner;
 
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.sdk.client.nodes.UaNode;
-import org.eclipse.milo.opcua.stack.core.Identifiers;
+import org.eclipse.milo.opcua.stack.core.NodeIds;
 import org.eclipse.milo.opcua.stack.core.UaException;
 
 import java.util.ArrayList;
@@ -24,7 +24,7 @@ public class BrowseRunner {
      */
     public List<String> run(OpcUaClient opcUaClient) throws UaException {
         List<String> nodesList = new ArrayList<>();
-        List<? extends UaNode> nodes = opcUaClient.getAddressSpace().browseNodes(Identifiers.ObjectsFolder);
+        List<? extends UaNode> nodes = opcUaClient.getAddressSpace().browseNodes(NodeIds.ObjectsFolder);
 
         nodesList.addAll(nodes.stream().filter(item -> item.getBrowseName() != null
                         && item.getBrowseName().getName() != null

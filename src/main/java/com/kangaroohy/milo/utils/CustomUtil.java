@@ -1,6 +1,5 @@
 package com.kangaroohy.milo.utils;
 
-import com.google.common.collect.Sets;
 import com.kangaroohy.milo.configuration.MiloProperties;
 import com.kangaroohy.milo.exception.EndPointNotFoundException;
 import com.kangaroohy.milo.exception.IdentityNotFoundException;
@@ -39,7 +38,7 @@ public class CustomUtil {
     }
 
     public static Set<String> getHostnames(String address, boolean includeLoopback) {
-        HashSet<String> hostnames = Sets.newHashSet();
+        HashSet<String> hostnames = new HashSet<>();
 
         try {
             InetAddress inetAddress = InetAddress.getByName(address);

@@ -6,9 +6,9 @@ import com.kangaroohy.milo.exception.IdentityNotFoundException;
 import com.kangaroohy.milo.utils.CustomUtil;
 import com.kangaroohy.milo.utils.KeyStoreLoader;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
-import org.eclipse.milo.opcua.sdk.client.api.identity.AnonymousProvider;
-import org.eclipse.milo.opcua.sdk.client.api.identity.IdentityProvider;
-import org.eclipse.milo.opcua.sdk.client.api.identity.UsernameProvider;
+import org.eclipse.milo.opcua.sdk.client.identity.AnonymousProvider;
+import org.eclipse.milo.opcua.sdk.client.identity.IdentityProvider;
+import org.eclipse.milo.opcua.sdk.client.identity.UsernameProvider;
 import org.eclipse.milo.opcua.stack.core.security.SecurityPolicy;
 import org.eclipse.milo.opcua.stack.core.types.builtin.LocalizedText;
 import org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned;
@@ -46,14 +46,14 @@ public class MiloConnectFactory {
     public OpcUaClient createConnectedClient(MiloProperties.Config key) throws Exception {
         OpcUaClient client = createClient(key);
         try {
-            client.connect().get(properties.getRequestTimeout(), TimeUnit.MILLISECONDS);
+            client.connectAsync().get(properties.getRequestTimeout(), TimeUnit.MILLISECONDS);
             return client;
         } catch (Exception e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
             try {
-                client.disconnect().get(properties.getRequestTimeout(), TimeUnit.MILLISECONDS);
+                client.disconnectAsync().get(properties.getRequestTimeout(), TimeUnit.MILLISECONDS);
             } catch (Exception disconnectException) {
                 e.addSuppressed(disconnectException);
             }
@@ -91,6 +91,9 @@ public class MiloConnectFactory {
                     }
                     return Optional.of(description);
                 },
+                transportBuilder -> {
+                    // 使用 Milo 默认的 OPC TCP 传输配置。
+                },
                 configBuilder -> {
                     configBuilder
                             .setApplicationName(LocalizedText.english("milo opc-ua client"))
@@ -104,7 +107,6 @@ public class MiloConnectFactory {
                                 .setCertificateChain(KeyStoreLoader.getClientCertificateChain())
                                 .setCertificateValidator(KeyStoreLoader.getCertificateValidator());
                     }
-                    return configBuilder.build();
                 }
         );
     }
