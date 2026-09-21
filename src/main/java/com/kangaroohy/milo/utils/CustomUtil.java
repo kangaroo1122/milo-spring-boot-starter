@@ -1,6 +1,5 @@
 package com.kangaroohy.milo.utils;
 
-import com.google.common.collect.Sets;
 import com.kangaroohy.milo.configuration.MiloProperties;
 import com.kangaroohy.milo.exception.EndPointNotFoundException;
 import com.kangaroohy.milo.exception.IdentityNotFoundException;
@@ -39,7 +38,7 @@ public class CustomUtil {
     }
 
     public static Set<String> getHostnames(String address, boolean includeLoopback) {
-        HashSet<String> hostnames = Sets.newHashSet();
+        HashSet<String> hostnames = new HashSet<>();
 
         try {
             InetAddress inetAddress = InetAddress.getByName(address);
@@ -79,8 +78,11 @@ public class CustomUtil {
     }
 
     public static NodeId parseNodeId(String identifier) {
+        if (!StringUtils.hasText(identifier)) {
+            throw new IllegalArgumentException("NodeId 不能为空");
+        }
         NodeId nodeId = new NodeId(2, identifier);
-        if (identifier.startsWith("ns=") && identifier.contains(";")) {
+        if (identifier.startsWith("ns=") || identifier.matches("^[isgb]=.*")) {
             nodeId = NodeId.parseOrNull(identifier);
         }
         if (nodeId == null) {

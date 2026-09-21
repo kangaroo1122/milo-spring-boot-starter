@@ -4,13 +4,15 @@ import com.kangaroohy.milo.service.MiloClientManager;
 import com.kangaroohy.milo.service.MiloConfigProvider;
 import com.kangaroohy.milo.service.MiloService;
 import com.kangaroohy.milo.service.MiloSubscriptionManager;
+import com.kangaroohy.milo.pool.MiloConnectFactory;
+import com.kangaroohy.milo.service.MiloCertificateManager;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 import java.util.Optional;
 
@@ -42,9 +44,17 @@ public class MiloAutoConfiguration {
     /** 创建并管理每个 endpoint 对应的长期 OPC UA 客户端。 */
     @Bean(destroyMethod = "close")
     @ConditionalOnMissingBean
-    public MiloClientManager miloClientManager(Optional<MiloConfigProvider> configProvider) {
+    public MiloClientManager miloClientManager(Optional<MiloConfigProvider> configProvider,
+                                             MiloCertificateManager certificates) {
         initConfig(configProvider);
-        return new MiloClientManager(properties);
+        return new MiloClientManager(properties,
+                new MiloConnectFactory(properties, properties.getPrimary(), certificates));
+    }
+
+    @Bean(destroyMethod = "close")
+    @ConditionalOnMissingBean
+    public MiloCertificateManager miloCertificateManager() {
+        return new MiloCertificateManager(properties.getCertificate());
     }
 
     /** 创建统一的订阅复用和回调管理器。 */

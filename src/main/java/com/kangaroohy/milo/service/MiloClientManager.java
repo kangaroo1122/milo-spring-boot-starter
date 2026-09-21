@@ -3,6 +3,7 @@ package com.kangaroohy.milo.service;
 import com.kangaroohy.milo.configuration.MiloProperties;
 import com.kangaroohy.milo.exception.EndPointNotFoundException;
 import com.kangaroohy.milo.pool.MiloConnectFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.springframework.util.StringUtils;
 
@@ -10,6 +11,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Owns one long-lived OPC UA client per configured endpoint.
@@ -20,17 +22,23 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * ownership explicit and prevents a subscription from pinning a pool slot
  * forever.</p>
  */
+@Slf4j
 public class MiloClientManager implements AutoCloseable {
 
     private final MiloProperties properties;
     private final MiloConnectFactory factory;
     private final Map<String, OpcUaClient> clients = new ConcurrentHashMap<>();
-    private final Object creationLock = new Object();
+    private final Map<String, Object> creationLocks = new ConcurrentHashMap<>();
+    private final ReentrantReadWriteLock lifecycle = new ReentrantReadWriteLock();
     private final AtomicBoolean closed = new AtomicBoolean();
 
     public MiloClientManager(MiloProperties properties) {
+        this(properties, new MiloConnectFactory(properties, properties.getPrimary()));
+    }
+
+    public MiloClientManager(MiloProperties properties, MiloConnectFactory factory) {
         this.properties = properties;
-        this.factory = new MiloConnectFactory(properties, properties.getPrimary());
+        this.factory = factory;
     }
 
     /**
@@ -40,22 +48,27 @@ public class MiloClientManager implements AutoCloseable {
      * @return 长期 OPC UA 客户端
      */
     public OpcUaClient getClient(String clientName) throws Exception {
+        lifecycle.readLock().lock();
+        try {
+            ensureOpen();
+            String key = resolveClientName(clientName);
+            synchronized (creationLocks.computeIfAbsent(key, ignored -> new Object())) {
+                ensureOpen();
+                OpcUaClient existing = clients.get(key);
+                if (existing == null) {
+                    existing = factory.createConnectedClient(config(key));
+                    clients.put(key, existing);
+                }
+                return existing;
+            }
+        } finally {
+            lifecycle.readLock().unlock();
+        }
+    }
+
+    private void ensureOpen() {
         if (closed.get()) {
             throw new IllegalStateException("OPC UA client manager 已关闭");
-        }
-        String key = resolveClientName(clientName);
-        OpcUaClient existing = clients.get(key);
-        if (existing != null) {
-            return existing;
-        }
-
-        synchronized (creationLock) {
-            existing = clients.get(key);
-            if (existing == null) {
-                existing = factory.createConnectedClient(config(key));
-                clients.put(key, existing);
-            }
-            return existing;
         }
     }
 
@@ -102,13 +115,23 @@ public class MiloClientManager implements AutoCloseable {
         if (!closed.compareAndSet(false, true)) {
             return;
         }
-        clients.forEach((key, client) -> {
-            try {
-                client.disconnect().get(properties.getRequestTimeout(), TimeUnit.MILLISECONDS);
-            } catch (Exception ignored) {
-                // Best effort during application shutdown.
-            }
-        });
-        clients.clear();
+        lifecycle.writeLock().lock();
+        try {
+            clients.forEach((key, client) -> {
+                try {
+                    client.disconnect().get(properties.getRequestTimeout(), TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.warn("Interrupted while disconnecting OPC UA client {}", key);
+                } catch (Exception e) {
+                    log.warn("Failed to disconnect OPC UA client {}", key, e);
+                }
+            });
+            clients.clear();
+            creationLocks.clear();
+            factory.close();
+        } finally {
+            lifecycle.writeLock().unlock();
+        }
     }
 }

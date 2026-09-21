@@ -4,7 +4,7 @@ import com.kangaroohy.milo.configuration.MiloProperties;
 import com.kangaroohy.milo.exception.EndPointNotFoundException;
 import com.kangaroohy.milo.exception.IdentityNotFoundException;
 import com.kangaroohy.milo.utils.CustomUtil;
-import com.kangaroohy.milo.utils.KeyStoreLoader;
+import com.kangaroohy.milo.service.MiloCertificateManager;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.sdk.client.api.identity.AnonymousProvider;
 import org.eclipse.milo.opcua.sdk.client.api.identity.IdentityProvider;
@@ -28,12 +28,25 @@ import java.util.concurrent.TimeUnit;
  * @version 0.0.1
  * @date 2023/5/4 18:56
  */
-public class MiloConnectFactory {
+public class MiloConnectFactory implements AutoCloseable {
 
     private final MiloProperties properties;
+    private final MiloCertificateManager certificates;
+    private final boolean ownsCertificates;
 
     public MiloConnectFactory(MiloProperties properties, String primary) {
+        this(properties, primary, new MiloCertificateManager(properties.getCertificate()), true);
+    }
+
+    public MiloConnectFactory(MiloProperties properties, String primary, MiloCertificateManager certificates) {
+        this(properties, primary, certificates, false);
+    }
+
+    private MiloConnectFactory(MiloProperties properties, String primary,
+                               MiloCertificateManager certificates, boolean ownsCertificates) {
         this.properties = properties;
+        this.certificates = certificates;
+        this.ownsCertificates = ownsCertificates;
         CustomUtil.verifyProperties(properties, primary);
     }
 
@@ -64,7 +77,7 @@ public class MiloConnectFactory {
     private OpcUaClient createClient(MiloProperties.Config key) throws Exception {
         boolean secureEndpoint = !SecurityPolicy.None.equals(securityPolicy(key));
         if (secureEndpoint) {
-            KeyStoreLoader.load();
+            certificates.load();
         }
 
         return OpcUaClient.create(
@@ -94,19 +107,26 @@ public class MiloConnectFactory {
                 configBuilder -> {
                     configBuilder
                             .setApplicationName(LocalizedText.english("milo opc-ua client"))
-                            .setApplicationUri("urn:kangaroohy:milo:client")
+                            .setApplicationUri(certificates.getApplicationUri())
                             .setIdentityProvider(this.identityProvider(key))
                             .setRequestTimeout(Unsigned.uint(properties.getRequestTimeout()));
                     if (secureEndpoint) {
                         configBuilder
-                                .setKeyPair(KeyStoreLoader.getClientKeyPair())
-                                .setCertificate(KeyStoreLoader.getClientCertificate())
-                                .setCertificateChain(KeyStoreLoader.getClientCertificateChain())
-                                .setCertificateValidator(KeyStoreLoader.getCertificateValidator());
+                                .setKeyPair(certificates.getClientKeyPair())
+                                .setCertificate(certificates.getClientCertificate())
+                                .setCertificateChain(certificates.getClientCertificateChain())
+                                .setCertificateValidator(certificates.getCertificateValidator());
                     }
                     return configBuilder.build();
                 }
         );
+    }
+
+    @Override
+    public void close() {
+        if (ownsCertificates) {
+            certificates.close();
+        }
     }
 
     private URI getUri(MiloProperties.Config key) {

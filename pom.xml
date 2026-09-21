@@ -6,7 +6,7 @@
     <name>milo-spring-boot-starter</name>
     <groupId>com.kangaroohy</groupId>
     <artifactId>milo-spring-boot-starter</artifactId>
-    <version>3.2.0.0.6.16</version>
+    <version>3.2.1.0.6.16</version>
     <description>milo opc ua spring boot starter封装组件</description>
     <url>https://github.com/kangaroo1122/milo-spring-boot-starter</url>
 

@@ -50,8 +50,19 @@ public class MiloProperties {
     /** 订阅业务回调线程数。 */
     private int callbackThreads = 2;
 
-    /** 订阅业务回调等待队列容量；队列满时在通知线程执行以形成背压。 */
+    /** 订阅业务回调等待队列容量；队列满时丢弃新通知并记录计数，保持已接收通知顺序。 */
     private int callbackQueueCapacity = 10000;
+
+    /** 每个应用独立管理的客户端证书配置。 */
+    private Certificate certificate = new Certificate();
+
+    @Data
+    @ToString(exclude = "password")
+    public static class Certificate {
+        private String directory = System.getProperty("user.home") + "/.milo-security";
+        private String password = "password";
+        private String applicationUri = "urn:kangaroohy:milo:client";
+    }
 
     /**
      * server 列表

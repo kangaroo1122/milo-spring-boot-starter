@@ -29,6 +29,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 
 /**
@@ -46,6 +48,11 @@ public class MiloSubscriptionManager implements AutoCloseable {
     private final int subscriptionBatchSize;
     private final int subscriptionQueueSize;
     private final Map<SubscriptionKey, SubscriptionContext> contexts = new ConcurrentHashMap<>();
+    private final AtomicBoolean closed = new AtomicBoolean();
+    private final ReentrantReadWriteLock lifecycle = new ReentrantReadWriteLock();
+    private final AtomicLong droppedCallbacks = new AtomicLong();
+    private final AtomicLong callbackFailures = new AtomicLong();
+    private final AtomicLong recoveryFailures = new AtomicLong();
 
     public MiloSubscriptionManager(MiloClientManager clients) {
         this(clients, null, 200, 10, 2, 10000);
@@ -93,7 +100,15 @@ public class MiloSubscriptionManager implements AutoCloseable {
                             thread.setDaemon(true);
                             return thread;
                         },
-                        new ThreadPoolExecutor.CallerRunsPolicy());
+                        (task, pool) -> {
+                            if (!pool.isShutdown()) {
+                                long count = droppedCallbacks.incrementAndGet();
+                                // Drop the newest notification, never run it ahead of queued values.
+                                if ((count & (count - 1)) == 0) {
+                                    log.warn("OPC UA callback queue full; dropped {} notifications", count);
+                                }
+                            }
+                        });
                 executors.add(executor);
                 ownedExecutors.add(executor);
             }
@@ -144,28 +159,47 @@ public class MiloSubscriptionManager implements AutoCloseable {
         if (identifiers == null || identifiers.isEmpty()) {
             throw new IllegalArgumentException("订阅点位不能为空");
         }
-        if (publishingInterval <= 0) {
+        if (!Double.isFinite(publishingInterval) || publishingInterval <= 0) {
             throw new IllegalArgumentException("publishingInterval 必须大于 0");
         }
-        if (samplingInterval <= 0) {
+        if (!Double.isFinite(samplingInterval) || samplingInterval <= 0) {
             throw new IllegalArgumentException("samplingInterval 必须大于 0");
         }
         if (callback == null) {
             throw new IllegalArgumentException("订阅回调不能为空");
         }
 
-        String resolvedClientName = clients.resolveClientName(clientName);
-        SubscriptionKey key = new SubscriptionKey(resolvedClientName, publishingInterval, samplingInterval);
-        SubscriptionContext context = contexts.get(key);
-        if (context == null) {
-            SubscriptionContext created = new SubscriptionContext(key, clients.getClient(resolvedClientName));
-            SubscriptionContext previous = contexts.putIfAbsent(key, created);
-            context = previous == null ? created : previous;
-            if (previous != null) {
-                created.close();
-            }
+        List<String> validatedIdentifiers = new ArrayList<>(identifiers);
+        for (String identifier : validatedIdentifiers) {
+            CustomUtil.parseNodeId(identifier);
         }
-        return context.add(identifiers, callback);
+        lifecycle.readLock().lock();
+        try {
+            if (closed.get()) {
+                throw new IllegalStateException("订阅管理器已关闭");
+            }
+            String resolvedClientName = clients.resolveClientName(clientName);
+            SubscriptionKey key = new SubscriptionKey(resolvedClientName, publishingInterval, samplingInterval);
+            while (true) {
+                SubscriptionContext context = contexts.get(key);
+                if (context == null) {
+                    SubscriptionContext created = new SubscriptionContext(key, clients.getClient(resolvedClientName));
+                    SubscriptionContext previous = contexts.putIfAbsent(key, created);
+                    context = previous == null ? created : previous;
+                    if (previous != null) {
+                        created.close();
+                    }
+                }
+                synchronized (context) {
+                    // The last handle may have closed this context after the map lookup.
+                    if (!context.closed.get()) {
+                        return context.add(validatedIdentifiers, callback);
+                    }
+                }
+            }
+        } finally {
+            lifecycle.readLock().unlock();
+        }
     }
 
     /**
@@ -177,16 +211,41 @@ public class MiloSubscriptionManager implements AutoCloseable {
         return contexts.size();
     }
 
+    public long droppedCallbackCount() {
+        return droppedCallbacks.get();
+    }
+
+    public long callbackFailureCount() {
+        return callbackFailures.get();
+    }
+
+    public long recoveryFailureCount() {
+        return recoveryFailures.get();
+    }
+
+    public int pendingCallbackCount() {
+        return ownedCallbackExecutors.stream()
+                .mapToInt(executor -> ((ThreadPoolExecutor) executor).getQueue().size()).sum();
+    }
+
     @Override
     public void close() {
-        for (SubscriptionContext context : new ArrayList<>(contexts.values())) {
-            context.close();
+        if (!closed.compareAndSet(false, true)) {
+            return;
         }
-        contexts.clear();
-        for (ExecutorService executor : ownedCallbackExecutors) {
-            executor.shutdown();
+        lifecycle.writeLock().lock();
+        try {
+            for (SubscriptionContext context : new ArrayList<>(contexts.values())) {
+                context.close();
+            }
+            contexts.clear();
+            for (ExecutorService executor : ownedCallbackExecutors) {
+                executor.shutdown();
+            }
+            managementExecutor.shutdown();
+        } finally {
+            lifecycle.writeLock().unlock();
         }
-        managementExecutor.shutdown();
     }
 
     private final class SubscriptionContext implements AutoCloseable {
@@ -207,10 +266,10 @@ public class MiloSubscriptionManager implements AutoCloseable {
         private synchronized SubscriptionHandle add(List<String> identifiers,
                                                      SubscriptionCallback callback) throws Exception {
             ensureOpen();
-            ensureSubscription();
             List<ItemRegistration> registrations = new ArrayList<>();
             List<ManagedDataItem> createdDataItems = Collections.emptyList();
             try {
+                ensureSubscription();
                 LinkedHashSet<String> uniqueIdentifiers = new LinkedHashSet<>(identifiers);
                 List<String> newIdentifiers = new ArrayList<>();
                 for (String identifier : uniqueIdentifiers) {
@@ -247,7 +306,12 @@ public class MiloSubscriptionManager implements AutoCloseable {
                 deleteUntrackedItems(createdDataItems);
                 throw e;
             }
-            return () -> remove(registrations, callback);
+            AtomicBoolean handleClosed = new AtomicBoolean();
+            return () -> {
+                if (handleClosed.compareAndSet(false, true)) {
+                    remove(registrations, callback);
+                }
+            };
         }
 
         private void deleteUntrackedItems(List<ManagedDataItem> candidates) {
@@ -294,6 +358,7 @@ public class MiloSubscriptionManager implements AutoCloseable {
                 try {
                     callback.onSubscribe(source, value);
                 } catch (Exception e) {
+                    callbackFailures.incrementAndGet();
                     log.error("OPC UA subscription callback failed for {}", registration.identifier, e);
                 }
             }
@@ -391,6 +456,7 @@ public class MiloSubscriptionManager implements AutoCloseable {
                 } catch (Exception ignored) {
                     // Preserve the original subscription error.
                 }
+                recoveryFailures.incrementAndGet();
                 log.error("Failed to recreate OPC UA subscription for {}", key, e);
             } finally {
                 rebuilding.set(false);

@@ -1,6 +1,10 @@
 package com.kangaroohy.milo.service;
 
 import com.kangaroohy.milo.configuration.MiloProperties;
+import com.kangaroohy.milo.model.BrowseNode;
+import com.kangaroohy.milo.utils.CustomUtil;
+import org.eclipse.milo.opcua.sdk.client.nodes.UaNode;
+import org.eclipse.milo.opcua.stack.core.Identifiers;
 import com.kangaroohy.milo.model.ReadWriteEntity;
 import com.kangaroohy.milo.model.WriteEntity;
 import com.kangaroohy.milo.runner.BrowseNodeRunner;
@@ -17,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
+import java.math.BigDecimal;
 
 /**
  * OPC UA 业务服务入口，提供浏览、读值、写值和订阅能力。
@@ -60,6 +65,32 @@ public class MiloService {
      */
     public List<String> browseRoot(String clientName) throws Exception {
         return withClient(clientName, client -> new BrowseRunner().run(client));
+    }
+
+    /** Browse direct children of ObjectsFolder, preserving their actual NodeIds. */
+    public List<BrowseNode> browseRootDetails() throws Exception {
+        return browseRootDetails(null);
+    }
+
+    public List<BrowseNode> browseRootDetails(String clientName) throws Exception {
+        return browseChildren(Identifiers.ObjectsFolder.toParseableString(), clientName);
+    }
+
+    /** Browse one level; callers can traverse using each result's nodeId. No name filtering is applied. */
+    public List<BrowseNode> browseChildren(String nodeId) throws Exception {
+        return browseChildren(nodeId, null);
+    }
+
+    public List<BrowseNode> browseChildren(String nodeId, String clientName) throws Exception {
+        org.eclipse.milo.opcua.stack.core.types.builtin.NodeId parsed = CustomUtil.parseNodeId(nodeId);
+        return withClient(clientName, client -> {
+            List<BrowseNode> result = new ArrayList<>();
+            for (UaNode node : client.getAddressSpace().browseNodes(parsed)) {
+                result.add(new BrowseNode(node.getNodeId().toParseableString(), node.getBrowseName(),
+                        node.getDisplayName(), node.getNodeClass()));
+            }
+            return result;
+        });
     }
 
     /**
@@ -210,7 +241,7 @@ public class MiloService {
      * @param clientName 配置 key，为 null 时使用 primary
      */
     public void writeToOpcChar(List<ReadWriteEntity> entities, String clientName) throws Exception {
-        writeConverted(entities, clientName, value -> ((Number) value).byteValue());
+        writeConverted(entities, clientName, value -> (byte) exactInteger(value, Byte.MIN_VALUE, Byte.MAX_VALUE));
     }
 
     /**
@@ -248,7 +279,7 @@ public class MiloService {
      * @param clientName 配置 key，为 null 时使用 primary
      */
     public void writeToOpcByte(List<ReadWriteEntity> entities, String clientName) throws Exception {
-        writeConverted(entities, clientName, value -> Unsigned.ubyte(((Number) value).intValue()));
+        writeConverted(entities, clientName, value -> Unsigned.ubyte(exactInteger(value, 0, 255)));
     }
 
     /**
@@ -286,7 +317,7 @@ public class MiloService {
      * @param clientName 配置 key，为 null 时使用 primary
      */
     public void writeToOpcShort(List<ReadWriteEntity> entities, String clientName) throws Exception {
-        writeConverted(entities, clientName, value -> ((Number) value).shortValue());
+        writeConverted(entities, clientName, value -> (short) exactInteger(value, Short.MIN_VALUE, Short.MAX_VALUE));
     }
 
     /**
@@ -324,7 +355,7 @@ public class MiloService {
      * @param clientName 配置 key，为 null 时使用 primary
      */
     public void writeToOpcWord(List<ReadWriteEntity> entities, String clientName) throws Exception {
-        writeConverted(entities, clientName, value -> Unsigned.ushort(((Number) value).intValue()));
+        writeConverted(entities, clientName, value -> Unsigned.ushort(exactInteger(value, 0, 65535)));
     }
 
     /**
@@ -503,13 +534,33 @@ public class MiloService {
                 if (entity == null) {
                     throw new IllegalArgumentException("写入实体不能为空");
                 }
-                writes.add(WriteEntity.builder()
-                        .identifier(entity.getIdentifier())
-                        .variant(new Variant(converter.apply(entity.getValue())))
-                        .build());
+                try {
+                    writes.add(WriteEntity.builder()
+                            .identifier(entity.getIdentifier())
+                            .variant(new Variant(converter.apply(entity.getValue())))
+                            .build());
+                } catch (IllegalArgumentException e) {
+                    throw new IllegalArgumentException("点位 " + entity.getIdentifier()
+                            + " 的写入值无效: " + entity.getValue() + "; " + e.getMessage(), e);
+                }
             }
         }
         writeSpecifyType(writes, clientName);
+    }
+
+    private static int exactInteger(Object value, int min, int max) {
+        if (!(value instanceof Number)) {
+            throw new IllegalArgumentException("必须为整数，范围 [" + min + ", " + max + "]");
+        }
+        try {
+            int result = new BigDecimal(value.toString()).intValueExact();
+            if (result < min || result > max) {
+                throw new ArithmeticException("out of range");
+            }
+            return result;
+        } catch (ArithmeticException | NumberFormatException e) {
+            throw new IllegalArgumentException("必须为整数，范围 [" + min + ", " + max + "]", e);
+        }
     }
 
     private <T> T withClient(String clientName, ClientOperation<T> operation) throws Exception {

@@ -48,12 +48,12 @@ public class ReadValuesRunner {
     }
 
     public ReadValuesRunner(List<String> identifiers, double maxAge, int batchSize) {
-        this(identifiers, maxAge, batchSize, Math.max(1L, (long) maxAge));
+        this(identifiers, maxAge, batchSize, 5000L);
     }
 
     public ReadValuesRunner(List<String> identifiers, double maxAge, int batchSize, long requestTimeout) {
         this.identifiers = identifiers == null ? Collections.emptyList() : new ArrayList<>(identifiers);
-        if (maxAge < 0) {
+        if (!Double.isFinite(maxAge) || maxAge < 0) {
             throw new IllegalArgumentException("maxAge 不能小于 0");
         }
         this.maxAge = maxAge;

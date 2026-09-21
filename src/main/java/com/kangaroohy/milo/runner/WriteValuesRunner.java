@@ -1,6 +1,7 @@
 package com.kangaroohy.milo.runner;
 
 import com.kangaroohy.milo.model.WriteEntity;
+import com.kangaroohy.milo.exception.BatchWriteException;
 import com.kangaroohy.milo.utils.CustomUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
@@ -54,24 +55,29 @@ public class WriteValuesRunner {
         if (entities.isEmpty()) {
             return Collections.emptyList();
         }
+        // Validate and snapshot every value before the first side-effecting request.
+        List<NodeId> validatedNodeIds = new ArrayList<>(entities.size());
+        List<DataValue> validatedValues = new ArrayList<>(entities.size());
+        List<String> identifiers = new ArrayList<>(entities.size());
+        for (WriteEntity entity : entities) {
+            if (entity == null || entity.getIdentifier() == null
+                    || entity.getIdentifier().trim().isEmpty()) {
+                throw new IllegalArgumentException("写入实体或 NodeId 不能为空");
+            }
+            if (entity.getVariant() == null) {
+                throw new IllegalArgumentException("写入值不能为空: " + entity.getIdentifier());
+            }
+            identifiers.add(entity.getIdentifier());
+            validatedNodeIds.add(CustomUtil.parseNodeId(entity.getIdentifier()));
+            validatedValues.add(new DataValue(entity.getVariant(), null, null));
+        }
         List<StatusCode> allStatusCodes = new ArrayList<>(entities.size());
         List<String> failures = new LinkedList<>();
         for (int start = 0; start < entities.size(); start += batchSize) {
             int end = Math.min(start + batchSize, entities.size());
             List<WriteEntity> batch = entities.subList(start, end);
-            List<NodeId> nodeIds = new ArrayList<>(batch.size());
-            List<DataValue> dataValues = new ArrayList<>(batch.size());
-            for (WriteEntity entity : batch) {
-                if (entity == null || entity.getIdentifier() == null
-                        || entity.getIdentifier().trim().isEmpty()) {
-                    throw new IllegalArgumentException("写入实体或 NodeId 不能为空");
-                }
-                if (entity.getVariant() == null) {
-                    throw new IllegalArgumentException("写入值不能为空: " + entity.getIdentifier());
-                }
-                nodeIds.add(CustomUtil.parseNodeId(entity.getIdentifier()));
-                dataValues.add(new DataValue(entity.getVariant(), null, null));
-            }
+            List<NodeId> nodeIds = validatedNodeIds.subList(start, end);
+            List<DataValue> dataValues = validatedValues.subList(start, end);
 
             List<StatusCode> statusCodes;
             try {
@@ -110,7 +116,7 @@ public class WriteValuesRunner {
             }
         }
         if (!failures.isEmpty()) {
-            throw new IllegalStateException("OPC UA 写入失败: " + failures);
+            throw new BatchWriteException(identifiers, allStatusCodes, "OPC UA 写入失败: " + failures);
         }
         return allStatusCodes;
     }

@@ -28,7 +28,7 @@ Java 版本仍需满足所选 Spring Boot 版本自身的要求。
 </dependency>
 ~~~
 
-JDK 8 或 Spring Boot 2.x 项目请继续使用 `3.2.0.0.6.16`。
+JDK 8 或 Spring Boot 2.x 项目请继续使用 `3.2.1.0.6.16`。
 
 ## 配置
 ```yaml
@@ -79,12 +79,20 @@ kangaroohy:
     subscription-queue-size: 10
     callback-threads: 2
     callback-queue-capacity: 10000
+    certificate:
+      directory: ~/.milo-security
+      password: password
+      application-uri: urn:kangaroohy:milo:client
 ```
 
 读写和创建监控项都会按批次拆分。每个批次独立请求；读取时某个批次超时或通信
 失败，该批次的点位返回对应的坏状态码，其余批次仍会继续执行。写入会先完成
-其余批次，最后汇总失败状态并抛出异常。回调线程按点位分配到单线程队列，同一
-点位的回调保持顺序；队列达到容量后会形成背压。
+其余批次，最后汇总失败状态并抛出 `BatchWriteException`，可以通过
+`getIdentifiers()` 和 `getStatuses()` 查看每个点位的结果。回调线程按点位分配到
+单线程队列，同一点位的回调保持顺序；队列满时丢弃新通知并记录告警。
+
+订阅管理器提供 `droppedCallbackCount()`、`pendingCallbackCount()`、
+`callbackFailureCount()` 和 `recoveryFailureCount()`，可用于查看订阅运行状态。
 
 订阅统一通过 `MiloService.subscriptionFromOpcUa(...)` 创建，以复用同一 endpoint
 下的服务端 Subscription 和统一回调线程池。
@@ -92,6 +100,8 @@ kangaroohy:
 ## 写
 
 注入MiloService即可使用，支持：批量读、单个写（批量写，循环即可）
+
+Char、Byte、Short、Word 写入会校验整数范围，避免越界值被静默截断。
 
 其中：写值时可能需要指定数据类型，视点位情况而定
 
@@ -246,6 +256,14 @@ id格式：通道名.设备名.TAG
 
 可遍历指定节点相关信息
 
+新增 `browseRootDetails()` 和 `browseChildren()`，返回真实 NodeId、浏览名称、显示名称
+和节点类型，返回的 NodeId 可直接用于读写和订阅。
+
+```java
+List<BrowseNode> roots = miloService.browseRootDetails();
+List<BrowseNode> children = miloService.browseChildren(roots.get(0).getNodeId());
+```
+
 ## 订阅
 
 这里使用的是实现`ApplicationRunner`接口，实现在项目启动时，自动订阅相关点位
@@ -349,6 +367,9 @@ kangaroohy:
 ~/.milo-security/milo-client.pfx
 ~/.milo-security/pki/
 ```
+
+证书目录、密码和 Application URI 可以通过 `kangaroohy.milo.certificate` 配置。
+密钥库中的客户端条目别名为 `milo-client`。
 
 先发起一次连接，再打开 KepServer 的 **OPC UA Configuration Manager → 受信任的客户端**。
 找到 URI 为 `urn:kangaroohy:milo:client` 的 `Milo Client`：如果图标带红叉，说明
